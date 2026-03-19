@@ -11,12 +11,14 @@ import RecentTransactions from "@/components/RecentTransactions";
 import AIInsightsCard from "@/components/AIInsightsCard";
 import FAB from "@/components/FAB";
 import QuickAddSheet from "@/components/QuickAddSheet";
+import NotificationsPanel from "@/components/NotificationsPanel";
 import { useDataStore } from "@/store/useDataStore";
 import { useAuthStore } from "@/store/useAuthStore";
 import { startOfMonth } from "date-fns";
 
 const Dashboard = () => {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
   const { fetchTransactions, fetchCategories, fetchBudgets, fetchWallets } = useDataStore();
   const { user } = useAuthStore();
 
@@ -52,7 +54,10 @@ const Dashboard = () => {
             transition={{ duration: 0.3, delay: 0.1 }}
             className="flex items-center"
           >
-            <button className="relative w-10 h-10 rounded-xl bg-card shadow-card flex items-center justify-center active:scale-95 transition-transform">
+            <button
+              onClick={() => setNotifOpen(true)}
+              className="relative w-10 h-10 rounded-xl bg-card shadow-card flex items-center justify-center active:scale-95 transition-transform"
+            >
               <Bell className="w-5 h-5 text-foreground" strokeWidth={1.8} />
               <div className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-destructive" />
             </button>
