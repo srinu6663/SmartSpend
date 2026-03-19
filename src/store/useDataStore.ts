@@ -127,7 +127,39 @@ export const useDataStore = create<DataState>((set, get) => ({
         .order('name');
 
       if (error) throw error;
-      set({ categories: data || [] });
+
+      // Auto-seed default categories if none exist
+      if (!data || data.length === 0) {
+        const defaults = [
+          // Expense categories
+          { name: 'Food & Dining', icon: '🍽️', color: '#F97316', type: 'expense' },
+          { name: 'Transport', icon: '🚗', color: '#3B82F6', type: 'expense' },
+          { name: 'Shopping', icon: '🛍️', color: '#EC4899', type: 'expense' },
+          { name: 'Entertainment', icon: '🎬', color: '#8B5CF6', type: 'expense' },
+          { name: 'Health', icon: '💊', color: '#EF4444', type: 'expense' },
+          { name: 'Education', icon: '📚', color: '#06B6D4', type: 'expense' },
+          { name: 'Utilities', icon: '💡', color: '#F59E0B', type: 'expense' },
+          { name: 'Rent', icon: '🏠', color: '#10B981', type: 'expense' },
+          { name: 'Groceries', icon: '🛒', color: '#84CC16', type: 'expense' },
+          { name: 'Personal Care', icon: '💅', color: '#F472B6', type: 'expense' },
+          { name: 'Other', icon: '📦', color: '#6B7280', type: 'expense' },
+          // Income categories
+          { name: 'Salary', icon: '💼', color: '#10B981', type: 'income' },
+          { name: 'Freelance', icon: '💻', color: '#6366F1', type: 'income' },
+          { name: 'Business', icon: '🏢', color: '#F59E0B', type: 'income' },
+          { name: 'Investment', icon: '📈', color: '#14B8A6', type: 'income' },
+          { name: 'Other Income', icon: '💰', color: '#8B5CF6', type: 'income' },
+        ];
+
+        const { data: seeded } = await supabase
+          .from('categories')
+          .insert(defaults)
+          .select();
+
+        set({ categories: seeded || [] });
+      } else {
+        set({ categories: data });
+      }
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
