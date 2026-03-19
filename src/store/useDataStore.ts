@@ -121,6 +121,8 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   fetchCategories: async () => {
     try {
+      const { data: { user } } = await supabase.auth.getUser();
+
       const { data, error } = await supabase
         .from('categories')
         .select('*')
@@ -131,7 +133,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       // Auto-seed default categories if none exist
       if (!data || data.length === 0) {
         const defaults = [
-          // Expense categories
+          // Expense
           { name: 'Food & Dining', icon: '🍽️', color: '#F97316', type: 'expense' },
           { name: 'Transport', icon: '🚗', color: '#3B82F6', type: 'expense' },
           { name: 'Shopping', icon: '🛍️', color: '#EC4899', type: 'expense' },
@@ -143,7 +145,7 @@ export const useDataStore = create<DataState>((set, get) => ({
           { name: 'Groceries', icon: '🛒', color: '#84CC16', type: 'expense' },
           { name: 'Personal Care', icon: '💅', color: '#F472B6', type: 'expense' },
           { name: 'Other', icon: '📦', color: '#6B7280', type: 'expense' },
-          // Income categories
+          // Income
           { name: 'Salary', icon: '💼', color: '#10B981', type: 'income' },
           { name: 'Freelance', icon: '💻', color: '#6366F1', type: 'income' },
           { name: 'Business', icon: '🏢', color: '#F59E0B', type: 'income' },
@@ -151,12 +153,26 @@ export const useDataStore = create<DataState>((set, get) => ({
           { name: 'Other Income', icon: '💰', color: '#8B5CF6', type: 'income' },
         ];
 
-        const { data: seeded } = await supabase
+        // Add user_id if table requires it (some setups scope categories per user)
+        const seedRows = user
+          ? defaults.map(d => ({ ...d, user_id: user.id }))
+          : defaults;
+
+        const { data: seeded, error: seedError } = await supabase
           .from('categories')
-          .insert(defaults)
+          .insert(seedRows)
           .select();
 
-        set({ categories: seeded || [] });
+        if (seedError) {
+          // If user_id column doesn't exist, retry without it
+          const { data: seeded2 } = await supabase
+            .from('categories')
+            .insert(defaults)
+            .select();
+          set({ categories: seeded2 || [] });
+        } else {
+          set({ categories: seeded || [] });
+        }
       } else {
         set({ categories: data });
       }
@@ -164,7 +180,6 @@ export const useDataStore = create<DataState>((set, get) => ({
       console.error('Error fetching categories:', error);
     }
   },
-
   fetchBudgets: async (month) => {
     try {
       const { data, error } = await supabase
@@ -252,10 +267,22 @@ export const useDataStore = create<DataState>((set, get) => ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // 1. Insert Transaction
+      // Build insert payload — omit null/undefined optional fields to avoid DB constraint issues
+      const payload: Record<string, any> = {
+        user_id: user.id,
+        amount: transaction.amount,
+        type: transaction.type,
+        date: transaction.date,
+      };
+      if (transaction.category_id) payload.category_id = transaction.category_id;
+      if (transaction.wallet_id) payload.wallet_id = transaction.wallet_id;
+      if (transaction.to_wallet_id) payload.to_wallet_id = transaction.to_wallet_id;
+      if (transaction.note) payload.note = transaction.note;
+      if (transaction.receipt_url) payload.receipt_url = transaction.receipt_url;
+
       const { error } = await supabase
         .from('transactions')
-        .insert({ ...transaction, user_id: user.id });
+        .insert(payload);
 
       if (error) throw error;
 
