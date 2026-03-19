@@ -17,11 +17,16 @@ const Splash = () => {
   useEffect(() => {
     if (loading) return;
     const timer = setTimeout(() => {
-      // Always show onboarding on every app open
-      navigate("/onboarding", { replace: true });
+      if (session) {
+        // Already logged in — skip onboarding, go straight to app
+        navigate("/dashboard", { replace: true });
+      } else {
+        // Not logged in — show onboarding
+        navigate("/onboarding", { replace: true });
+      }
     }, 2800);
     return () => clearTimeout(timer);
-  }, [loading, navigate]);
+  }, [loading, session, navigate]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-[#0F0F14]">
