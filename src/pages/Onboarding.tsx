@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, Wallet, BarChart3, Target, Bell } from "lucide-react";
+import { useAuthStore } from "@/store/useAuthStore";
 
 const slides = [
   {
@@ -45,22 +46,24 @@ const slides = [
 const Onboarding = () => {
   const [step, setStep] = useState(0);
   const navigate = useNavigate();
+  const { session } = useAuthStore();
   const startX = useRef<number | null>(null);
   const current = slides[step];
   const isLast = step === slides.length - 1;
 
+  // If logged in → dashboard, else → auth
+  const destination = session ? "/dashboard" : "/auth";
+
   const goNext = () => {
     if (isLast) {
-      localStorage.setItem("hasCompletedOnboarding", "true");
-      navigate("/auth", { replace: true });
+      navigate(destination, { replace: true });
     } else {
       setStep(s => s + 1);
     }
   };
 
   const skip = () => {
-    localStorage.setItem("hasCompletedOnboarding", "true");
-    navigate("/auth", { replace: true });
+    navigate(destination, { replace: true });
   };
 
   // Touch swipe handlers

@@ -17,17 +17,11 @@ const Splash = () => {
   useEffect(() => {
     if (loading) return;
     const timer = setTimeout(() => {
-      const hasOnboarded = localStorage.getItem("hasCompletedOnboarding");
-      if (!hasOnboarded) {
-        navigate("/onboarding", { replace: true });
-      } else if (!session) {
-        navigate("/auth", { replace: true });
-      } else {
-        navigate("/dashboard", { replace: true });
-      }
+      // Always show onboarding on every app open
+      navigate("/onboarding", { replace: true });
     }, 2800);
     return () => clearTimeout(timer);
-  }, [loading, session, navigate]);
+  }, [loading, navigate]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-[#0F0F14]">
