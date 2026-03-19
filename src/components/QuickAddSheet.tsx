@@ -63,62 +63,77 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
   };
 
   const handleSave = async () => {
-    if (amount === "0") return;
-    if (txType !== 'transfer' && !selectedCategoryId) return;
-    if (txType === 'transfer' && (!selectedWalletId || !toWalletId || selectedWalletId === toWalletId)) {
-        toast.error("Please select two different wallets for the transfer.");
-        return;
+    // Validation with clear user feedback
+    const parsedAmount = parseFloat(amount);
+    if (!amount || amount === "0" || isNaN(parsedAmount) || parsedAmount <= 0) {
+      toast.error("Enter an amount greater than 0");
+      return;
     }
-    
+    if (txType !== 'transfer' && !selectedCategoryId) {
+      toast.error("Please select a category");
+      return;
+    }
+    if (!selectedWalletId) {
+      toast.error("Please add a wallet first from the Dashboard");
+      return;
+    }
+    if (txType === 'transfer') {
+      if (!toWalletId || selectedWalletId === toWalletId) {
+        toast.error("Please select two different wallets for the transfer");
+        return;
+      }
+    }
+
     setSaving(true);
-    
+
     // Upload receipt if exists
     let receiptUrl = null;
     if (receiptFile) {
       const fileExt = receiptFile.name.split('.').pop();
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      
+
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('receipts')
         .upload(fileName, receiptFile);
-        
+
       if (uploadError) {
-        toast.error("Failed to upload receipt image");
-        console.error(uploadError);
+        console.error('Receipt upload error:', uploadError);
+        // Non-blocking: proceed without receipt
       } else if (uploadData) {
         const { data: publicUrlData } = supabase.storage.from('receipts').getPublicUrl(uploadData.path);
         receiptUrl = publicUrlData.publicUrl;
       }
     }
-    
-    // Add local timezone offset to save current date correctly
+
     const date = new Date().toISOString().split('T')[0];
-    
     const fallbackCategory = categories[0]?.id || '';
-    
+
     const { error } = await addTransaction({
-      amount: parseFloat(amount),
+      amount: parsedAmount,
       type: txType,
       category_id: txType === 'transfer' ? fallbackCategory : selectedCategoryId!,
       wallet_id: selectedWalletId,
       to_wallet_id: txType === 'transfer' ? toWalletId : null,
       note: note || null,
-      date: date,
-      receipt_url: receiptUrl
+      date,
+      receipt_url: receiptUrl,
     });
 
     setSaving(false);
 
     if (error) {
-      toast.error("Failed to add transaction");
+      console.error('Transaction save error:', error);
+      toast.error(`Could not save: ${(error as any)?.message || "Unknown error"}`);
     } else {
-      toast.success(`${txType === 'expense' ? 'Expense' : txType === 'income' ? 'Income' : 'Transfer'} of ₹${amount} saved`);
+      const label = txType === 'expense' ? 'Expense' : txType === 'income' ? 'Income' : 'Transfer';
+      toast.success(`${label} of ₹${parsedAmount.toLocaleString('en-IN')} saved ✓`);
       setAmount("0");
       setNote("");
       setReceiptFile(null);
       onClose();
     }
   };
+
 
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ".", "0", "del"];
 
