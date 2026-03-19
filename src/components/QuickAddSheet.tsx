@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Delete, Camera, Image as ImageIcon } from "lucide-react";
+import { X, Delete } from "lucide-react";
 import { toast } from "sonner";
 import { useDataStore } from "@/store/useDataStore";
 import { supabase } from "@/lib/supabase";
+import ReceiptScanner from "@/components/ReceiptScanner";
 
 interface Props {
   open: boolean;
@@ -262,22 +263,17 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
             <div className="px-5 pb-3 flex gap-2">
               <input
                 type="text"
-                placeholder="Add a note..."
+                placeholder="Add a note... (try #tags)"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 className="flex-1 bg-muted rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
               />
-              <div className="relative flex shrink-0">
-                <input 
-                  type="file" 
-                  accept="image/*"
-                  onChange={(e) => e.target.files && setReceiptFile(e.target.files[0])}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                />
-                <button className={`w-11 h-11 rounded-xl flex items-center justify-center transition-colors ${receiptFile ? 'bg-primary text-primary-foreground shadow-sm' : 'bg-muted text-muted-foreground'}`}>
-                  {receiptFile ? <ImageIcon className="w-5 h-5" /> : <Camera className="w-5 h-5" />}
-                </button>
-              </div>
+              <ReceiptScanner
+                onResult={(result) => {
+                  if (result.amount) setAmount(String(result.amount));
+                  if (result.merchant) setNote(prev => prev || result.merchant!);
+                }}
+              />
             </div>
 
             {/* Keypad */}

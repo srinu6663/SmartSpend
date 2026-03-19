@@ -8,6 +8,7 @@ import WeeklyChart from "@/components/WeeklyChart";
 import InsightsStrip from "@/components/InsightsStrip";
 import BudgetProgress from "@/components/BudgetProgress";
 import RecentTransactions from "@/components/RecentTransactions";
+import AIInsightsCard from "@/components/AIInsightsCard";
 import FAB from "@/components/FAB";
 import QuickAddSheet from "@/components/QuickAddSheet";
 import { useDataStore } from "@/store/useDataStore";
@@ -63,6 +64,7 @@ const Dashboard = () => {
       <main className="overflow-y-auto pb-28 space-y-5">
         <SummaryCards />
         <WalletList />
+        <AIInsightsCard />
         <InsightsStrip />
         <SpendingChart />
         <WeeklyChart />

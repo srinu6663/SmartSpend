@@ -7,6 +7,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useDataStore } from "@/store/useDataStore";
 import { toast } from "sonner";
 import GoalsList from "@/components/GoalsList";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 const settingsSections = [
   {
@@ -37,6 +38,7 @@ const settingsSections = [
 const Profile = () => {
   const { user, signOut } = useAuthStore();
   const { transactions, categories } = useDataStore();
+  const { requestPermission } = usePushNotifications();
 
   const handleSignOut = async () => {
     try {
@@ -166,7 +168,10 @@ const Profile = () => {
               {section.items.map((item) => (
                 <button
                   key={item.label}
-                  onClick={() => item.label === "Export Data" ? handleExport() : null}
+                  onClick={() => {
+                    if (item.label === "Export Data") handleExport();
+                    else if (item.label === "Notifications") requestPermission();
+                  }}
                   className="flex items-center justify-between w-full px-4 py-3.5 active:bg-muted/50 transition-colors"
                 >
                   <div className="flex items-center gap-3">
