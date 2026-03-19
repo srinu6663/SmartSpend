@@ -69,7 +69,7 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
       toast.error("Enter an amount greater than 0");
       return;
     }
-    if (txType !== 'transfer' && !selectedCategoryId) {
+    if (txType !== 'transfer' && !selectedCategoryId && typeCategories.length > 0) {
       toast.error("Please select a category");
       return;
     }
@@ -111,7 +111,7 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
     const { error } = await addTransaction({
       amount: parsedAmount,
       type: txType,
-      category_id: txType === 'transfer' ? fallbackCategory : selectedCategoryId!,
+      category_id: txType === 'transfer' ? fallbackCategory : (selectedCategoryId || ''),
       wallet_id: selectedWalletId,
       to_wallet_id: txType === 'transfer' ? toWalletId : null,
       note: note || null,
@@ -216,7 +216,7 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
             {txType !== 'transfer' && (
               <div className="flex gap-2 px-5 pb-3 overflow-x-auto no-scrollbar">
                 {typeCategories.length === 0 ? (
-                  <p className="text-xs text-muted-foreground px-2 py-2">No categories found. Adding fallback soon.</p>
+                  <p className="text-xs text-muted-foreground px-2 py-2">No categories defined.</p>
                 ) : typeCategories.map((cat) => (
                   <button
                     key={cat.id}

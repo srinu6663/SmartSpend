@@ -121,61 +121,13 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   fetchCategories: async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
       const { data, error } = await supabase
         .from('categories')
         .select('*')
         .order('name');
 
       if (error) throw error;
-
-      // Auto-seed default categories if none exist
-      if (!data || data.length === 0) {
-        const defaults = [
-          // Expense
-          { name: 'Food & Dining', icon: '🍽️', color: '#F97316', type: 'expense' },
-          { name: 'Transport', icon: '🚗', color: '#3B82F6', type: 'expense' },
-          { name: 'Shopping', icon: '🛍️', color: '#EC4899', type: 'expense' },
-          { name: 'Entertainment', icon: '🎬', color: '#8B5CF6', type: 'expense' },
-          { name: 'Health', icon: '💊', color: '#EF4444', type: 'expense' },
-          { name: 'Education', icon: '📚', color: '#06B6D4', type: 'expense' },
-          { name: 'Utilities', icon: '💡', color: '#F59E0B', type: 'expense' },
-          { name: 'Rent', icon: '🏠', color: '#10B981', type: 'expense' },
-          { name: 'Groceries', icon: '🛒', color: '#84CC16', type: 'expense' },
-          { name: 'Personal Care', icon: '💅', color: '#F472B6', type: 'expense' },
-          { name: 'Other', icon: '📦', color: '#6B7280', type: 'expense' },
-          // Income
-          { name: 'Salary', icon: '💼', color: '#10B981', type: 'income' },
-          { name: 'Freelance', icon: '💻', color: '#6366F1', type: 'income' },
-          { name: 'Business', icon: '🏢', color: '#F59E0B', type: 'income' },
-          { name: 'Investment', icon: '📈', color: '#14B8A6', type: 'income' },
-          { name: 'Other Income', icon: '💰', color: '#8B5CF6', type: 'income' },
-        ];
-
-        // Add user_id if table requires it (some setups scope categories per user)
-        const seedRows = user
-          ? defaults.map(d => ({ ...d, user_id: user.id }))
-          : defaults;
-
-        const { data: seeded, error: seedError } = await supabase
-          .from('categories')
-          .insert(seedRows)
-          .select();
-
-        if (seedError) {
-          // If user_id column doesn't exist, retry without it
-          const { data: seeded2 } = await supabase
-            .from('categories')
-            .insert(defaults)
-            .select();
-          set({ categories: seeded2 || [] });
-        } else {
-          set({ categories: seeded || [] });
-        }
-      } else {
-        set({ categories: data });
-      }
+      set({ categories: data || [] });
     } catch (error) {
       console.error('Error fetching categories:', error);
     }
