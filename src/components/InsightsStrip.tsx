@@ -38,17 +38,24 @@ const InsightsStrip = () => {
   }
 
   const categoryMap: Record<string, number> = {};
-  transactions.filter(t => t.type === 'expense').forEach(t => {
-    const name = t.categories?.name || "Other";
-    categoryMap[name] = (categoryMap[name] || 0) + Number(t.amount);
-  });
+  const thisMonth = new Date().getMonth();
+  const thisYear = new Date().getFullYear();
+  transactions
+    .filter(t => {
+      const d = new Date(t.date);
+      return t.type === 'expense' && d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+    })
+    .forEach(t => {
+      const name = t.categories?.name || "Other";
+      categoryMap[name] = (categoryMap[name] || 0) + Number(t.amount);
+    });
   
   const entries = Object.entries(categoryMap).sort((a,b) => b[1] - a[1]);
   if (entries.length > 0) {
     dynamicInsights.push({
       id: "i2", type: "info",
-      title: "Top Category",
-      description: `Most of your spending goes to ${entries[0][0]} (₹${entries[0][1].toLocaleString()}).`,
+      title: "Top Category this month",
+      description: `Most spending goes to ${entries[0][0]} — ₹${entries[0][1].toLocaleString("en-IN")}.`,
       icon: BarChart3
     });
   }
