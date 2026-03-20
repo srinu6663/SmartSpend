@@ -12,7 +12,7 @@ import GoalsList from "@/components/GoalsList";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 
 // ── Helpers ────────────────────────────────────────────────
-const APP_VERSION = "1.1.0";
+const APP_VERSION = "1.2.0";
 
 // ── About Sheet ─────────────────────────────────────────
 const AboutSheet = ({ onClose }: { onClose: () => void }) => (
