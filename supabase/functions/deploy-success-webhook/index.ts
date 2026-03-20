@@ -3,7 +3,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { initializeApp, cert } from "npm:firebase-admin@11.11.0/app";
 import { getMessaging } from "npm:firebase-admin@11.11.0/messaging";
 
-const getFirebaseApp = () => {
+export const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+const getFirebaseApp = async () => {
   try {
     const serviceAccountKey = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_KEY');
     if (!serviceAccountKey) throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY');
@@ -31,11 +36,19 @@ const getFirebaseApp = () => {
   }
 };
 
-serve(async (req) => {
+serve(async (req: Request) => {
+  // Handle CORS preflight requests perfectly
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders });
+  }
+
   try {
     // Only accept POST requests
     if (req.method !== 'POST') {
-      return new Response('Method not allowed', { status: 405 });
+      return new Response('Method not allowed', { 
+        status: 405,
+        headers: corsHeaders 
+      });
     }
 
     // Parse Vercel Webhook payload
@@ -62,12 +75,12 @@ serve(async (req) => {
 
     if (dbError) throw dbError;
 
-    const tokens = profiles?.map(p => p.fcm_token).filter(Boolean) || [];
+    const tokens = profiles?.map((p: { fcm_token: string }) => p.fcm_token).filter(Boolean) || [];
 
     if (tokens.length === 0) {
       console.log("No FCM tokens found. Exiting gracefully.");
       return new Response(JSON.stringify({ success: true, message: "No subscribers" }), { 
-        headers: { "Content-Type": "application/json" } 
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
       });
     }
 
@@ -92,14 +105,15 @@ serve(async (req) => {
       sent: response.successCount,
       failed: response.failureCount
     }), { 
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200 
     });
 
-  } catch (error: any) {
+  } catch (err: unknown) {
+    const error = err as Error;
     console.error("Function Error:", error.message);
     return new Response(JSON.stringify({ error: error.message }), { 
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 500 
     });
   }
