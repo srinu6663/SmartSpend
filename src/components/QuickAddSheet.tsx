@@ -69,7 +69,8 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
       toast.error("Enter an amount greater than 0");
       return;
     }
-    if (txType !== 'transfer' && !selectedCategoryId && typeCategories.length > 0) {
+    // Category only required when categories actually exist for this type
+    if (txType !== 'transfer' && typeCategories.length > 0 && !selectedCategoryId) {
       toast.error("Please select a category");
       return;
     }
@@ -106,12 +107,12 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
     }
 
     const date = new Date().toISOString().split('T')[0];
-    const fallbackCategory = categories[0]?.id || '';
 
     const { error } = await addTransaction({
       amount: parsedAmount,
       type: txType,
-      category_id: txType === 'transfer' ? fallbackCategory : (selectedCategoryId || ''),
+      // Only include category_id if we actually have one selected
+      category_id: selectedCategoryId || (categories[0]?.id ?? null),
       wallet_id: selectedWalletId,
       to_wallet_id: txType === 'transfer' ? toWalletId : null,
       note: note || null,
@@ -308,13 +309,13 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
             <div className="px-5 pb-5">
               <button
                 onClick={handleSave}
-                disabled={amount === "0" || saving || !selectedCategoryId}
+                disabled={amount === "0" || saving || !selectedWalletId}
                 className="w-full py-4 rounded-2xl font-bold text-sm text-primary-foreground disabled:opacity-30 transition-all duration-200 active:scale-[0.98]"
                 style={{
                   background: "linear-gradient(135deg, hsl(239, 84%, 67%) 0%, hsl(262, 83%, 58%) 100%)",
                 }}
               >
-                {saving ? "Saving..." : "Save Transaction"}
+                {saving ? "Saving..." : !selectedWalletId ? "Add a wallet first →" : "Save Transaction"}
               </button>
             </div>
           </motion.div>

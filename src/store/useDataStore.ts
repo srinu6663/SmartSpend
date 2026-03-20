@@ -154,32 +154,14 @@ export const useDataStore = create<DataState>((set, get) => ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      let { data, error } = await supabase
+      const { data, error } = await supabase
         .from('wallets')
         .select('*')
         .order('created_at', { ascending: true });
 
       if (error) throw error;
-      
-      // Auto-create default wallet if none exist
-      if (!data || data.length === 0) {
-        const { data: newWallet, error: insertError } = await supabase
-          .from('wallets')
-          .insert({
-            user_id: user.id,
-            name: 'Main Wallet',
-            type: 'cash',
-            balance: 0,
-            color: 'hsl(190, 80%, 42%)'
-          })
-          .select()
-          .single();
-          
-        if (!insertError && newWallet) {
-          data = [newWallet];
-        }
-      }
 
+      // No auto-creation — only show real wallets the user has added
       set({ wallets: data || [] });
     } catch (error) {
       console.error('Error fetching wallets:', error);

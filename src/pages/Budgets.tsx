@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useDataStore } from "@/store/useDataStore";
 import { ShoppingCart, Car, Tv, Coffee, Zap, Package, Dumbbell, MoreHorizontal, Plus, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import SubscriptionsList from "@/components/SubscriptionsList";
+import { startOfMonth } from "date-fns";
 
 const iconMap: Record<string, React.ElementType> = {
   ShoppingCart, Car, Tv, Coffee, Zap, Package, Dumbbell,
@@ -11,8 +12,13 @@ const iconMap: Record<string, React.ElementType> = {
 
 const Budgets = () => {
   const [view, setView] = useState<'budgets'|'subscriptions'>('budgets');
-  const { budgets, transactions } = useDataStore();
+  const { budgets, transactions, fetchBudgets, fetchTransactions } = useDataStore();
   
+  useEffect(() => {
+    fetchTransactions();
+    fetchBudgets(startOfMonth(new Date()).toISOString().split('T')[0]);
+  }, [fetchTransactions, fetchBudgets]);
+
   // Calculate spent amounts for each budget
   const budgetList = budgets.map(b => {
     const spent = transactions
