@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
-import { Mail, Lock, User, Wallet, ArrowRight, Eye, EyeOff, KeyRound } from "lucide-react";
+import { Mail, Lock, User, Wallet, ArrowRight, Eye, EyeOff, KeyRound, Phone } from "lucide-react";
 
 type AuthView = 'sign_in' | 'sign_up' | 'forgot_password' | 'verify_otp' | 'update_password';
 
@@ -12,8 +12,10 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [mobileNumber, setMobileNumber] = useState("");
   const [otp, setOtp] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [authError, setAuthError] = useState(false);
 
   // Listen for password recovery links (if user clicks link instead of typing OTP)
   useEffect(() => {
@@ -33,14 +35,20 @@ export default function Auth() {
     try {
       if (view === 'sign_in') {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (error) {
+          if (error.message.includes("Invalid login credentials")) {
+            setAuthError(true);
+          }
+          throw error;
+        }
+        setAuthError(false);
         toast.success("Successfully logged in!");
       } 
       else if (view === 'sign_up') {
         const { error, data } = await supabase.auth.signUp({
           email,
           password,
-          options: { data: { full_name: fullName } },
+          options: { data: { full_name: fullName, phone: mobileNumber } },
         });
         if (error) throw error;
         
@@ -119,17 +127,31 @@ export default function Auth() {
 
         <form onSubmit={handleAuth} className="space-y-4">
           
-          {/* Full Name - Only for Sign Up */}
+          {/* Full Name & Phone - Only for Sign Up */}
           {view === 'sign_up' && (
-            <div className="space-y-2">
+            <div className="space-y-4">
               <div className="relative">
-                <User className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+                <User className={`absolute left-3 top-3 h-5 w-5 ${authError ? 'text-destructive' : 'text-muted-foreground'}`} />
                 <input
                   type="text"
                   placeholder="Full Name"
                   required
                   value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                    setAuthError(false);
+                  }}
+                  className="flex h-11 w-full rounded-md border border-input bg-transparent px-10 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+                />
+              </div>
+              <div className="relative">
+                <Phone className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+                <input
+                  type="tel"
+                  placeholder="Mobile Number"
+                  required
+                  value={mobileNumber}
+                  onChange={(e) => setMobileNumber(e.target.value)}
                   className="flex h-11 w-full rounded-md border border-input bg-transparent px-10 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
                 />
               </div>
@@ -140,15 +162,18 @@ export default function Auth() {
           {(view === 'sign_in' || view === 'sign_up' || view === 'forgot_password' || view === 'verify_otp') && (
             <div className="space-y-2">
               <div className="relative">
-                <Mail className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+                <Mail className={`absolute left-3 top-3 h-5 w-5 ${authError ? 'text-destructive' : 'text-muted-foreground'}`} />
                 <input
                   type="email"
                   placeholder="Email Address"
                   required
                   value={email}
                   disabled={view === 'verify_otp'}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="flex h-11 w-full rounded-md border border-input bg-transparent px-10 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setAuthError(false);
+                  }}
+                  className={`flex h-11 w-full rounded-md border bg-transparent px-10 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50 transition-colors ${authError ? 'border-destructive ring-destructive focus-visible:ring-destructive' : 'border-input'}`}
                 />
               </div>
             </div>
@@ -176,14 +201,17 @@ export default function Auth() {
           {(view === 'sign_in' || view === 'sign_up' || view === 'update_password') && (
             <div className="space-y-2">
               <div className="relative">
-                <Lock className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
+                <Lock className={`absolute left-3 top-3 h-5 w-5 ${authError ? 'text-destructive' : 'text-muted-foreground'}`} />
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder={view === 'update_password' ? "New Password" : "Password"}
                   required
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="flex h-11 w-full rounded-md border border-input bg-transparent px-10 pr-12 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring"
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setAuthError(false);
+                  }}
+                  className={`flex h-11 w-full rounded-md border bg-transparent px-10 pr-12 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring transition-colors ${authError ? 'border-destructive ring-destructive focus-visible:ring-destructive' : 'border-input'}`}
                 />
                 <button
                   type="button"
