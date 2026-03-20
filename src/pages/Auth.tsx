@@ -34,13 +34,22 @@ export default function Auth() {
           },
         });
         if (error) throw error;
-        toast.success("Registration successful! You can now log in.");
-        if (data.user) {
-          // Sometimes it auto-logs in depending on confirm settings
+        
+        if (data?.user?.identities?.length === 0) {
+          toast.error("This email is already registered. Please log in.");
+          return;
         }
+
+        toast.success("Registration successful! Check your email or log in directly if confirmation is disabled.");
       }
     } catch (error: any) {
-      toast.error(error.message || "Authentication failed");
+      if (error.message.includes('rate limit')) {
+        toast.error("Rate limit hit! Wait 1 hour OR disable 'Confirm Email' in Supabase Dashboard.");
+      } else if (error.message.includes('Email not confirmed')) {
+        toast.error("Account not confirmed! Check your email for the confirmation link.");
+      } else {
+        toast.error(error.message || "Authentication failed");
+      }
     } finally {
       setLoading(false);
     }
