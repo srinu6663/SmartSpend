@@ -5,24 +5,12 @@ import { toast } from "sonner";
 import { useDataStore } from "@/store/useDataStore";
 import { supabase } from "@/lib/supabase";
 import ReceiptScanner from "@/components/ReceiptScanner";
+import { formatIndianLive, validateTransaction } from "@/lib/finance";
 
 interface Props {
   open: boolean;
   onClose: () => void;
 }
-
-// Format raw numeric string as Indian number system (e.g. "1234567" → "12,34,567")
-const formatIndian = (raw: string): string => {
-  const parts = raw.split('.');
-  const intStr = parts[0];
-  if (intStr.length <= 3) return raw;
-  // Indian system: last 3 digits, then groups of 2
-  const lastThree = intStr.slice(-3);
-  const rest = intStr.slice(0, -3);
-  const withCommas = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',');
-  const formatted = withCommas + ',' + lastThree;
-  return parts.length > 1 ? formatted + '.' + parts[1] : formatted;
-};
 
 const QuickAddSheet = ({ open, onClose }: Props) => {
   const [amount, setAmount] = useState("0"); // raw numeric string, no commas
@@ -76,26 +64,23 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
   };
 
   const handleSave = async () => {
-    // Validation with clear user feedback
     const parsedAmount = parseFloat(amount);
-    if (!amount || amount === "0" || isNaN(parsedAmount) || parsedAmount <= 0) {
-      toast.error("Enter an amount greater than 0");
+    
+    // Run full client-side validation before even attempting the save
+    const preflight = validateTransaction({
+      amount: parsedAmount,
+      type: txType,
+      wallet_id: selectedWalletId,
+      to_wallet_id: toWalletId,
+      walletBalance: wallets.find(w => w.id === selectedWalletId)?.balance,
+    });
+    if (!preflight.valid) {
+      toast.error(preflight.error!);
       return;
     }
-    // Category only required when categories actually exist for this type
     if (txType !== 'transfer' && typeCategories.length > 0 && !selectedCategoryId) {
       toast.error("Please select a category");
       return;
-    }
-    if (!selectedWalletId) {
-      toast.error("Please add a wallet first from the Dashboard");
-      return;
-    }
-    if (txType === 'transfer') {
-      if (!toWalletId || selectedWalletId === toWalletId) {
-        toast.error("Please select two different wallets for the transfer");
-        return;
-      }
     }
 
     setSaving(true);
@@ -222,7 +207,7 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
               <span className={`text-5xl font-extrabold tabular-nums tracking-tighter ${
                 txType === 'expense' ? "text-foreground" : txType === 'income' ? "text-success" : "text-primary"
               }`}>
-                ₹{formatIndian(amount)}
+                ₹{formatIndianLive(amount)}
               </span>
             </div>
 

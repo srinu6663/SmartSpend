@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
+import { validateTransaction, computeNewBalance, round2 } from '@/lib/finance';
 
 export interface Wallet {
   id: string;
@@ -220,18 +221,28 @@ export const useDataStore = create<DataState>((set, get) => ({
 
       if (error) throw error;
 
-      // 2. Adjust Wallet Balance — checked and atomic
-      const amount = parseFloat(String(transaction.amount));
+      // ── Step 2: Validate & compute balance changes ──
+      const amount = round2(parseFloat(String(transaction.amount)));
+      const validation = validateTransaction({
+        amount,
+        type: transaction.type,
+        wallet_id: transaction.wallet_id,
+        to_wallet_id: transaction.to_wallet_id,
+        walletBalance: get().wallets.find(w => w.id === transaction.wallet_id)?.balance,
+      });
+      if (!validation.valid) throw new Error(validation.error);
       if (transaction.type === 'transfer' && transaction.wallet_id && transaction.to_wallet_id) {
         const fromWallet = get().wallets.find(w => w.id === transaction.wallet_id);
         const toWallet = get().wallets.find(w => w.id === transaction.to_wallet_id);
-        
         if (!fromWallet || !toWallet) throw new Error("Wallet not found for transfer");
-        if (fromWallet.balance < amount) throw new Error(`Insufficient balance in ${fromWallet.name}`);
 
         const [res1, res2] = await Promise.all([
-          supabase.from('wallets').update({ balance: parseFloat((fromWallet.balance - amount).toFixed(2)) }).eq('id', fromWallet.id),
-          supabase.from('wallets').update({ balance: parseFloat((toWallet.balance + amount).toFixed(2)) }).eq('id', toWallet.id),
+          supabase.from('wallets').update({
+            balance: computeNewBalance(fromWallet.balance, amount, 'transfer', 'from')
+          }).eq('id', fromWallet.id),
+          supabase.from('wallets').update({
+            balance: computeNewBalance(toWallet.balance, amount, 'transfer', 'to')
+          }).eq('id', toWallet.id),
         ]);
         if (res1.error) throw res1.error;
         if (res2.error) throw res2.error;
@@ -240,13 +251,9 @@ export const useDataStore = create<DataState>((set, get) => ({
         const wallet = get().wallets.find(w => w.id === transaction.wallet_id);
         if (!wallet) throw new Error("Wallet not found");
 
-        const newBalance = transaction.type === 'expense'
-          ? parseFloat((wallet.balance - amount).toFixed(2))
-          : parseFloat((wallet.balance + amount).toFixed(2));
-
         const { error: balErr } = await supabase
           .from('wallets')
-          .update({ balance: newBalance })
+          .update({ balance: computeNewBalance(wallet.balance, amount, transaction.type) })
           .eq('id', wallet.id);
         if (balErr) throw balErr;
       }
