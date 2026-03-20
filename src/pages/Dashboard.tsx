@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Bell } from "lucide-react";
 import SummaryCards from "@/components/SummaryCards";
@@ -22,13 +22,15 @@ const Dashboard = () => {
   const { fetchTransactions, fetchCategories, fetchBudgets, fetchWallets } = useDataStore();
   const { user } = useAuthStore();
 
+  const initialized = useRef(false);
   useEffect(() => {
+    if (initialized.current) return; // prevent double-fire
+    initialized.current = true;
     fetchTransactions();
     fetchCategories();
     fetchWallets();
-    // Default to current month for budgets
     fetchBudgets(startOfMonth(new Date()).toISOString().split('T')[0]);
-  }, [fetchTransactions, fetchCategories, fetchBudgets, fetchWallets]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";

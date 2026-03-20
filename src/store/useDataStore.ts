@@ -220,35 +220,39 @@ export const useDataStore = create<DataState>((set, get) => ({
 
       if (error) throw error;
 
-      // 2. Adjust Wallet Balance
+      // 2. Adjust Wallet Balance — checked and atomic
+      const amount = parseFloat(String(transaction.amount));
       if (transaction.type === 'transfer' && transaction.wallet_id && transaction.to_wallet_id) {
-        // Handle transfer between two wallets
         const fromWallet = get().wallets.find(w => w.id === transaction.wallet_id);
         const toWallet = get().wallets.find(w => w.id === transaction.to_wallet_id);
         
-        if (fromWallet && toWallet) {
-          await Promise.all([
-            supabase.from('wallets').update({ balance: fromWallet.balance - transaction.amount }).eq('id', fromWallet.id),
-            supabase.from('wallets').update({ balance: toWallet.balance + transaction.amount }).eq('id', toWallet.id)
-          ]);
-        }
+        if (!fromWallet || !toWallet) throw new Error("Wallet not found for transfer");
+        if (fromWallet.balance < amount) throw new Error(`Insufficient balance in ${fromWallet.name}`);
+
+        const [res1, res2] = await Promise.all([
+          supabase.from('wallets').update({ balance: parseFloat((fromWallet.balance - amount).toFixed(2)) }).eq('id', fromWallet.id),
+          supabase.from('wallets').update({ balance: parseFloat((toWallet.balance + amount).toFixed(2)) }).eq('id', toWallet.id),
+        ]);
+        if (res1.error) throw res1.error;
+        if (res2.error) throw res2.error;
+
       } else if (transaction.wallet_id) {
-        // Handle standard income/expense
         const wallet = get().wallets.find(w => w.id === transaction.wallet_id);
-        if (wallet) {
-          const newBalance = transaction.type === 'expense' 
-            ? wallet.balance - transaction.amount 
-            : wallet.balance + transaction.amount;
-            
-          await supabase
-            .from('wallets')
-            .update({ balance: newBalance })
-            .eq('id', wallet.id);
-        }
+        if (!wallet) throw new Error("Wallet not found");
+
+        const newBalance = transaction.type === 'expense'
+          ? parseFloat((wallet.balance - amount).toFixed(2))
+          : parseFloat((wallet.balance + amount).toFixed(2));
+
+        const { error: balErr } = await supabase
+          .from('wallets')
+          .update({ balance: newBalance })
+          .eq('id', wallet.id);
+        if (balErr) throw balErr;
       }
 
-      get().fetchTransactions(); 
-      get().fetchWallets(); 
+      // Always re-fetch from DB to keep store perfectly in sync
+      await Promise.all([get().fetchTransactions(), get().fetchWallets()]);
       return { error: null };
     } catch (error) {
       console.error('Error adding transaction:', error);
@@ -280,10 +284,10 @@ export const useDataStore = create<DataState>((set, get) => ({
         .delete()
         .eq('id', id);
 
-      if (!error) {
-        get().fetchTransactions();
-      }
-      return { error };
+      if (error) throw error;
+      // Refresh both transactions + wallets so totals are always accurate
+      await Promise.all([get().fetchTransactions(), get().fetchWallets()]);
+      return { error: null };
     } catch (error) {
       console.error('Error deleting transaction:', error);
       return { error };

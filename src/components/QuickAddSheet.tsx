@@ -11,8 +11,21 @@ interface Props {
   onClose: () => void;
 }
 
+// Format raw numeric string as Indian number system (e.g. "1234567" → "12,34,567")
+const formatIndian = (raw: string): string => {
+  const parts = raw.split('.');
+  const intStr = parts[0];
+  if (intStr.length <= 3) return raw;
+  // Indian system: last 3 digits, then groups of 2
+  const lastThree = intStr.slice(-3);
+  const rest = intStr.slice(0, -3);
+  const withCommas = rest.replace(/\B(?=(\d{2})+(?!\d))/g, ',');
+  const formatted = withCommas + ',' + lastThree;
+  return parts.length > 1 ? formatted + '.' + parts[1] : formatted;
+};
+
 const QuickAddSheet = ({ open, onClose }: Props) => {
-  const [amount, setAmount] = useState("0");
+  const [amount, setAmount] = useState("0"); // raw numeric string, no commas
   const [txType, setTxType] = useState<'expense'|'income'|'transfer'>('expense');
   const [note, setNote] = useState("");
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
@@ -204,12 +217,12 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
               </button>
             </div>
 
-            {/* Amount */}
+            {/* Amount — displayed with Indian comma formatting */}
             <div className="text-center py-5">
               <span className={`text-5xl font-extrabold tabular-nums tracking-tighter ${
                 txType === 'expense' ? "text-foreground" : txType === 'income' ? "text-success" : "text-primary"
               }`}>
-                ₹{amount}
+                ₹{formatIndian(amount)}
               </span>
             </div>
 
