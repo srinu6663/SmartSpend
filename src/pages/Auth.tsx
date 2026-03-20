@@ -13,7 +13,8 @@ export default function Auth() {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
-  const [otp, setOtp] = useState("");
+  const OTP_LENGTH = 8;
+  const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState(false);
 
@@ -67,7 +68,13 @@ export default function Auth() {
         setView('verify_otp');
       }
       else if (view === 'verify_otp') {
-        const { error } = await supabase.auth.verifyOtp({ email, token: otp, type: 'recovery' });
+        const otpString = otp.join('');
+        if (otpString.length < OTP_LENGTH) {
+          toast.error(`Please enter all ${OTP_LENGTH} digits.`);
+          setLoading(false);
+          return;
+        }
+        const { error } = await supabase.auth.verifyOtp({ email, token: otpString, type: 'recovery' });
         if (error) throw error;
         toast.success("OTP Verified! Please enter your new password.");
         setView('update_password');
@@ -181,18 +188,51 @@ export default function Auth() {
 
           {/* OTP Input - Only for Verify OTP */}
           {view === 'verify_otp' && (
-            <div className="space-y-2">
-              <div className="relative">
-                <KeyRound className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="6-Digit OTP Code"
-                  required
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value)}
-                  className="flex h-11 w-full rounded-md border border-input bg-transparent px-10 py-2 text-sm focus-visible:ring-2 focus-visible:ring-ring tracking-widest font-mono text-center"
-                  maxLength={6}
-                />
+            <div className="space-y-4 pt-2 pb-4">
+              <label className="text-sm font-medium text-center block text-muted-foreground mb-4">
+                Enter the {OTP_LENGTH}-digit code
+              </label>
+              <div className="flex justify-between gap-1 sm:gap-2">
+                {otp.map((digit, index) => (
+                  <input
+                    key={index}
+                    id={`otp-input-${index}`}
+                    type="text"
+                    maxLength={1}
+                    value={digit}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/[^0-9]/g, '');
+                      if (!val && e.target.value !== '') return; // only allow numbers
+                      
+                      const newOtp = [...otp];
+                      newOtp[index] = val;
+                      setOtp(newOtp);
+                      
+                      if (val && index < OTP_LENGTH - 1) {
+                        const nextInput = document.getElementById(`otp-input-${index + 1}`);
+                        nextInput?.focus();
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Backspace' && !otp[index] && index > 0) {
+                        const prevInput = document.getElementById(`otp-input-${index - 1}`);
+                        prevInput?.focus();
+                      }
+                    }}
+                    onPaste={(e) => {
+                      e.preventDefault();
+                      const pastedData = e.clipboardData.getData('text').replace(/[^0-9]/g, '').slice(0, OTP_LENGTH);
+                      const newOtp = [...otp];
+                      for (let i = 0; i < pastedData.length; i++) {
+                        newOtp[i] = pastedData[i];
+                      }
+                      setOtp(newOtp);
+                      const nextFocus = Math.min(pastedData.length, OTP_LENGTH - 1);
+                      document.getElementById(`otp-input-${nextFocus}`)?.focus();
+                    }}
+                    className="w-10 h-12 text-center text-lg font-mono rounded-md border border-input bg-transparent focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+                  />
+                ))}
               </div>
             </div>
           )}
