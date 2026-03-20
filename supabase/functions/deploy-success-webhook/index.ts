@@ -13,7 +13,7 @@ const getFirebaseApp = async () => {
   try {
     const serviceAccountKey = Deno.env.get('FIREBASE_SERVICE_ACCOUNT_KEY');
     if (!serviceAccountKey) throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_KEY');
-    
+
     // Check if it's base64 encoded or a raw JSON string
     let parsedKey;
     try {
@@ -46,9 +46,9 @@ serve(async (req: Request) => {
   try {
     // Only accept POST requests
     if (req.method !== 'POST') {
-      return new Response('Method not allowed', { 
+      return new Response('Method not allowed', {
         status: 405,
-        headers: corsHeaders 
+        headers: corsHeaders
       });
     }
 
@@ -58,10 +58,10 @@ serve(async (req: Request) => {
 
     // Vercel sends "deployment" payload event type, but we might want to check for "ready" or "success" status
     const deploymentStatus = body?.payload?.deployment?.state || body?.payload?.state;
-    
+
     // Even if we skip the strict state check to allow testing, we should try to extract the commit message
     const commitMessage = body?.payload?.deployment?.meta?.githubCommitMessage || "We've just released some awesome new updates.";
-    
+
     // Initialize Supabase Admin
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -80,8 +80,8 @@ serve(async (req: Request) => {
 
     if (tokens.length === 0) {
       console.log("No FCM tokens found. Exiting gracefully.");
-      return new Response(JSON.stringify({ success: true, message: "No subscribers" }), { 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      return new Response(JSON.stringify({ success: true, message: "No subscribers" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
       });
     }
 
@@ -101,21 +101,21 @@ serve(async (req: Request) => {
     const response = await messaging.sendEachForMulticast(message);
     console.log(`Successfully sent ${response.successCount} messages; failed ${response.failureCount}.`);
 
-    return new Response(JSON.stringify({ 
-      success: true, 
+    return new Response(JSON.stringify({
+      success: true,
       sent: response.successCount,
       failed: response.failureCount
-    }), { 
+    }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200 
+      status: 200
     });
 
   } catch (err: unknown) {
     const error = err as Error;
     console.error("Function Error:", error.message);
-    return new Response(JSON.stringify({ error: error.message }), { 
+    return new Response(JSON.stringify({ error: error.message }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500 
+      status: 500
     });
   }
 });
