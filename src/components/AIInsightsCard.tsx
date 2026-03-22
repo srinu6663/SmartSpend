@@ -19,7 +19,7 @@ const AIInsightsCard = () => {
     setError(false);
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
       // Build a compact transaction summary to send
       const recent = transactions.slice(0, 40);
