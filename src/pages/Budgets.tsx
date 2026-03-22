@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useDataStore } from "@/store/useDataStore";
-import { ShoppingCart, Car, Tv, Coffee, Zap, Package, Dumbbell, MoreHorizontal, Plus, AlertTriangle } from "lucide-react";
+import { ShoppingCart, Car, Tv, Coffee, Zap, Package, Dumbbell, MoreHorizontal, AlertTriangle, Plus } from "lucide-react";
 import { toast } from "sonner";
 import SubscriptionsList from "@/components/SubscriptionsList";
+import BudgetAddSheet from "@/components/BudgetAddSheet";
 import { startOfMonth } from "date-fns";
 
 const iconMap: Record<string, React.ElementType> = {
@@ -12,6 +13,7 @@ const iconMap: Record<string, React.ElementType> = {
 
 const Budgets = () => {
   const [view, setView] = useState<'budgets'|'subscriptions'>('budgets');
+  const [addSheetOpen, setAddSheetOpen] = useState(false);
   const { budgets, transactions, fetchBudgets, fetchTransactions } = useDataStore();
   
   useEffect(() => {
@@ -44,6 +46,14 @@ const Budgets = () => {
             <h1 className="text-xl font-bold text-foreground tracking-tight">Finances</h1>
             <p className="text-xs text-muted-foreground mt-0.5">Control your spending</p>
           </div>
+          {view === 'budgets' && (
+            <button
+              onClick={() => setAddSheetOpen(true)}
+              className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shadow-sm active:scale-95 transition-transform"
+            >
+              <Plus className="w-5 h-5" strokeWidth={2} />
+            </button>
+          )}
         </div>
 
         {/* Segmented Control */}
@@ -203,6 +213,8 @@ const Budgets = () => {
         </div>
         )}
       </main>
+
+      <BudgetAddSheet open={addSheetOpen} onClose={() => setAddSheetOpen(false)} />
     </div>
   );
 };

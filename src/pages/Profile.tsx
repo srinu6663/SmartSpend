@@ -42,17 +42,17 @@ const AboutSheet = ({ onClose }: { onClose: () => void }) => (
 
       <div className="space-y-3 mb-6">
         {[
-          { icon: Globe, label: "Website", value: "smartspend.vercel.app" },
-          { icon: Shield, label: "Privacy Policy", value: "View" },
-          { icon: MessageCircle, label: "Contact us", value: "support@smartspend.app" },
-        ].map(({ icon: Icon, label, value }) => (
-          <div key={label} className="flex items-center justify-between py-2">
+          { icon: Globe, label: "Website", value: "smartspend.vercel.app", href: "https://smartspend.vercel.app" },
+          { icon: Shield, label: "Privacy Policy", value: "View", href: "#" },
+          { icon: MessageCircle, label: "Contact us", value: "support@smartspend.app", href: "mailto:support@smartspend.app" },
+        ].map(({ icon: Icon, label, value, href }) => (
+          <a key={label} href={href} target={href !== "#" ? "_blank" : "_self"} className="flex items-center justify-between py-2">
             <div className="flex items-center gap-3">
               <Icon className="w-4 h-4 text-muted-foreground" strokeWidth={1.8} />
               <span className="text-sm text-foreground font-medium">{label}</span>
             </div>
             <span className="text-xs text-muted-foreground">{value}</span>
-          </div>
+          </a>
         ))}
       </div>
 
