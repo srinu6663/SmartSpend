@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -12,6 +12,7 @@ import Profile from "@/pages/Profile";
 import NotFound from "@/pages/NotFound";
 import Auth from "@/pages/Auth";
 import { useAuthStore } from "@/store/useAuthStore";
+import { useDataStore } from "@/store/useDataStore";
 
 const queryClient = new QueryClient();
 
@@ -39,6 +40,23 @@ const AppRoutes = () => {
   const location = useLocation();
   const hideNav = ["/auth", "/", "/onboarding"].includes(location.pathname);
   
+  // Global data hydration
+  const { fetchTransactions, fetchCategories, fetchWallets, fetchBudgets } = useDataStore();
+  const initialized = useRef(false);
+
+  useEffect(() => {
+    if (session && !initialized.current) {
+      initialized.current = true;
+      fetchTransactions();
+      fetchCategories();
+      fetchWallets();
+      const d = new Date();
+      fetchBudgets(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`);
+    } else if (!session) {
+      initialized.current = false;
+    }
+  }, [session, fetchTransactions, fetchCategories, fetchWallets, fetchBudgets]);
+
   return (
     <>
       <Routes>

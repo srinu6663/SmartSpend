@@ -106,8 +106,9 @@ export const useDataStore = create<DataState>((set, get) => ({
         .from('transactions')
         .select(`
           *,
-          categories(name, icon, color),
-          wallets(name, color)
+          categories (name, icon, color),
+          wallets!wallet_id (name, color),
+          to_wallet:wallets!to_wallet_id (name, color)
         `)
         .order('date', { ascending: false });
 

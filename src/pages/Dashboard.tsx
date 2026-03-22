@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Bell } from "lucide-react";
 import SummaryCards from "@/components/SummaryCards";
@@ -12,25 +12,12 @@ import AIInsightsCard from "@/components/AIInsightsCard";
 import FAB from "@/components/FAB";
 import QuickAddSheet from "@/components/QuickAddSheet";
 import NotificationsPanel from "@/components/NotificationsPanel";
-import { useDataStore } from "@/store/useDataStore";
 import { useAuthStore } from "@/store/useAuthStore";
-import { startOfMonth } from "date-fns";
 
 const Dashboard = () => {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const { fetchTransactions, fetchCategories, fetchBudgets, fetchWallets } = useDataStore();
   const { user } = useAuthStore();
-
-  const initialized = useRef(false);
-  useEffect(() => {
-    if (initialized.current) return; // prevent double-fire
-    initialized.current = true;
-    fetchTransactions();
-    fetchCategories();
-    fetchWallets();
-    fetchBudgets(startOfMonth(new Date()).toISOString().split('T')[0]);
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
