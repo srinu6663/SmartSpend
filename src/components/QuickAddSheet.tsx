@@ -286,6 +286,19 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
                 onResult={(result) => {
                   if (result.amount) setAmount(String(result.amount));
                   if (result.merchant) setNote(prev => prev || result.merchant!);
+                  
+                  if (result.type && (result.type === 'expense' || result.type === 'income')) {
+                    setTxType(result.type);
+                  }
+                  
+                  if (result.category) {
+                    // Try to map Gemini's generic category back to user's category library
+                    const match = categories.find(c =>
+                      c.name.toLowerCase().includes(result.category!.toLowerCase()) ||
+                      result.category!.toLowerCase().includes(c.name.toLowerCase())
+                    );
+                    if (match) setSelectedCategoryId(match.id);
+                  }
                 }}
               />
             </div>

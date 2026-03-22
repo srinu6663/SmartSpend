@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, RefreshCw, TrendingUp, TrendingDown, ChevronRight } from "lucide-react";
 import { useDataStore } from "@/store/useDataStore";
@@ -57,11 +57,13 @@ Return ONLY 4 insights, one per line, no numbering, no bullets.`;
     }
   }, [transactions]);
 
+  const hasGenerated = useRef(false);
   useEffect(() => {
-    if (transactions.length >= 3) {
+    if (transactions.length >= 3 && !hasGenerated.current) {
+      hasGenerated.current = true;
       generateInsights();
     }
-  }, []); // Only on mount
+  }, [transactions, generateInsights]);
 
   // Auto-cycle through insights every 5s
   useEffect(() => {

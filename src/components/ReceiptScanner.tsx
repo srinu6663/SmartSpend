@@ -9,6 +9,8 @@ interface OCRResult {
   amount: number | null;
   merchant: string | null;
   date: string | null;
+  type: 'expense' | 'income' | null;
+  category: string | null;
 }
 
 interface Props {
@@ -50,13 +52,14 @@ const ReceiptScanner = ({ onResult }: Props) => {
             data: base64,
           },
         },
-        `You are a receipt parser. Extract the total amount, merchant/store name, and date from this receipt image.
-Return ONLY a JSON object like: {"amount": 450, "merchant": "Swiggy", "date": "2024-03-15"}
-If you can't find a field, use null. Amount should be a number only, no currency symbols.`,
+        `You are an advanced receipt and invoice parser for a personal finance app. Analyze the image and extract the numeric total amount, the merchant or source name, the date, whether it is an 'expense' (you paid) or 'income' (you received), and a clear single-word category guess (e.g. Food, Travel, Shopping, Salary, Utilities).
+Return ONLY a JSON object like: {"amount": 450, "merchant": "Swiggy", "date": "2024-03-15", "type": "expense", "category": "Food"}
+If you can't find a field, use null. Amount should be a number only.`
       ]);
 
       const text = result.response.text().trim();
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      const cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
 
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]) as OCRResult;
