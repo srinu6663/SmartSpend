@@ -260,7 +260,12 @@ export const useDataStore = create<DataState>((set, get) => ({
       }
 
       // Always re-fetch from DB to keep store perfectly in sync
-      await Promise.all([get().fetchTransactions(), get().fetchWallets()]);
+      const d = new Date();
+      await Promise.all([
+        get().fetchTransactions(),
+        get().fetchWallets(),
+        get().fetchBudgets(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`)
+      ]);
       return { error: null };
     } catch (error) {
       console.error('Error adding transaction:', error);
@@ -294,7 +299,10 @@ export const useDataStore = create<DataState>((set, get) => ({
 
       if (error) throw error;
       // Refresh both transactions + wallets so totals are always accurate
-      await Promise.all([get().fetchTransactions(), get().fetchWallets()]);
+      await Promise.all([        get().fetchTransactions(), 
+        get().fetchWallets(),
+        get().fetchBudgets(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`)
+      ]);
       return { error: null };
     } catch (error) {
       console.error('Error deleting transaction:', error);

@@ -44,17 +44,38 @@ const AppRoutes = () => {
   const { fetchTransactions, fetchCategories, fetchWallets, fetchBudgets } = useDataStore();
   const initialized = useRef(false);
 
+  const hydrateData = () => {
+    fetchTransactions();
+    fetchCategories();
+    fetchWallets();
+    const d = new Date();
+    fetchBudgets(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`);
+  };
+
   useEffect(() => {
     if (session && !initialized.current) {
       initialized.current = true;
-      fetchTransactions();
-      fetchCategories();
-      fetchWallets();
-      const d = new Date();
-      fetchBudgets(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`);
+      hydrateData();
     } else if (!session) {
       initialized.current = false;
     }
+
+    // Auto-refresh data when user switches back to the app (Foreground/Focus)
+    const handleFocus = () => {
+      if (session) hydrateData();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") handleFocus();
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [session, fetchTransactions, fetchCategories, fetchWallets, fetchBudgets]);
 
   return (
