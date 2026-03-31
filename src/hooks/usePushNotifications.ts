@@ -34,7 +34,7 @@ export const usePushNotifications = () => {
     // Listen for foreground messages and show toast
     const unsubscribe = onForegroundMessage((payload) => {
       const { title, body } = payload.notification || {};
-      toast(title || "SmartSpend", {
+      toast(title || "Finly", {
         description: body,
         duration: 5000,
       });

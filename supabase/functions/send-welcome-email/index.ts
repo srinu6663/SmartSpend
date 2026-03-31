@@ -53,21 +53,21 @@ serve(async (req: Request) => {
 <body>
   <div class="container">
     <div class="header">
-      <h1>💰 Welcome to SmartSpend!</h1>
+      <h1>💰 Welcome to Finly!</h1>
       <p>Your personal finance journey starts now.</p>
     </div>
     <div class="body">
       <p class="greeting">Hey ${displayName} 👋</p>
-      <p class="subtext">You've just joined SmartSpend — the smartest way to track your money in India. Here's how to get started in 3 simple steps:</p>
+      <p class="subtext">You've just joined Finly — the smartest way to track your money in India. Here's how to get started in 3 simple steps:</p>
 
       <div class="tip"><p>💼 <strong>Create your wallets</strong> — Add Bank, Cash, or Credit Card accounts from the Home screen.</p></div>
       <div class="tip"><p>➕ <strong>Log your first transaction</strong> — Tap the blue <strong>+</strong> button to record income or an expense.</p></div>
       <div class="tip"><p>🎯 <strong>Set a budget</strong> — Head to Finances → Budgets to cap monthly spending by category.</p></div>
 
-      <a href="https://smartspend.vercel.app" class="cta">Open SmartSpend →</a>
+      <a href="https://smartspend.vercel.app" class="cta">Open Finly →</a>
     </div>
     <div class="footer">
-      <p>You received this because you signed up for SmartSpend.<br>© 2025 SmartSpend. Made with ❤️ for India.</p>
+      <p>You received this because you signed up for Finly.<br>© 2025 Finly. Made with ❤️ for India.</p>
     </div>
   </div>
 </body>
@@ -80,9 +80,9 @@ serve(async (req: Request) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "SmartSpend <onboarding@resend.dev>",
+        from: "Finly <onboarding@resend.dev>",
         to: [email],
-        subject: `Welcome to SmartSpend ${displayName !== "there" ? displayName + "!" : "—"} Let's build better money habits 💰`,
+        subject: `Welcome to Finly ${displayName !== "there" ? displayName + "!" : "—"} Let's build better money habits 💰`,
         html,
       }),
     });

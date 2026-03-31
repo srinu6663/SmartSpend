@@ -128,7 +128,7 @@ export default function Auth() {
               <Wallet className="w-10 h-10 text-primary" />
             </div>
           </div>
-          <h1 className="text-3xl font-bold">SmartSpend</h1>
+          <h1 className="text-3xl font-bold">Finly</h1>
           <p className="text-muted-foreground">{getTitle()}</p>
         </div>
 

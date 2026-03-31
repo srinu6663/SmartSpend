@@ -72,7 +72,7 @@ interface DataState {
   subscriptions: Subscription[];
   goals: Goal[];
   loading: boolean;
-  
+
   // Actions
   fetchTransactions: () => Promise<void>;
   fetchCategories: () => Promise<void>;
@@ -80,14 +80,14 @@ interface DataState {
   fetchWallets: () => Promise<void>;
   fetchSubscriptions: () => Promise<void>;
   fetchGoals: () => Promise<void>;
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'categories' | 'wallets'>) => Promise<{error: any}>;
-  updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<{error: any}>;
-  deleteTransaction: (id: string) => Promise<{error: any}>;
-  upsertBudget: (budget: Omit<Budget, 'id' | 'categories'>) => Promise<{error: any}>;
-  addWallet: (wallet: Omit<Wallet, 'id' | 'user_id'>) => Promise<{error: any}>;
-  addSubscription: (sub: Omit<Subscription, 'id' | 'user_id'>) => Promise<{error: any}>;
-  addGoal: (goal: Omit<Goal, 'id' | 'user_id' | 'current_amount'>) => Promise<{error: any}>;
-  updateGoalAmount: (id: string, amount: number) => Promise<{error: any}>;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'categories' | 'wallets'>) => Promise<{ error: any }>;
+  updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<{ error: any }>;
+  deleteTransaction: (id: string) => Promise<{ error: any }>;
+  upsertBudget: (budget: Omit<Budget, 'id' | 'categories'>) => Promise<{ error: any }>;
+  addWallet: (wallet: Omit<Wallet, 'id' | 'user_id'>) => Promise<{ error: any }>;
+  addSubscription: (sub: Omit<Subscription, 'id' | 'user_id'>) => Promise<{ error: any }>;
+  addGoal: (goal: Omit<Goal, 'id' | 'user_id' | 'current_amount'>) => Promise<{ error: any }>;
+  updateGoalAmount: (id: string, amount: number) => Promise<{ error: any }>;
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
@@ -299,9 +299,9 @@ export const useDataStore = create<DataState>((set, get) => ({
 
       if (error) throw error;
       // Refresh both transactions + wallets so totals are always accurate
-      await Promise.all([        get().fetchTransactions(), 
-        get().fetchWallets(),
-        get().fetchBudgets(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`)
+      await Promise.all([get().fetchTransactions(),
+      get().fetchWallets(),
+      get().fetchBudgets(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`)
       ]);
       return { error: null };
     } catch (error) {

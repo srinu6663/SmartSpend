@@ -20,8 +20,8 @@ export default defineConfig(({ mode }) => ({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'robots.txt', 'placeholder.svg'],
       manifest: {
-        name: 'SmartSpend',
-        short_name: 'SmartSpend',
+        name: 'Finly',
+        short_name: 'Finly',
         description: 'Personal Finance & Budget Tracker',
         theme_color: '#2E86C1',
         background_color: '#1E3A5F',

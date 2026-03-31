@@ -1,5 +1,5 @@
 /**
- * SmartSpend — Financial Rules & Calculation Engine
+ * Finly — Financial Rules & Calculation Engine
  * 
  * All money calculations in the app MUST go through these utilities
  * to ensure accuracy, consistency, and prevent data corruption.

@@ -87,8 +87,8 @@ const Onboarding = () => {
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 pt-[max(env(safe-area-inset-top),28px)]">
         <div className="flex items-center gap-2.5">
-          <img src="/icons/icon-192.png" alt="SmartSpend" className="w-7 h-7 rounded-[10px]" />
-          <span className="text-[13px] font-black text-white/80">SmartSpend</span>
+          <img src="/icons/icon-192.png" alt="Finly" className="w-7 h-7 rounded-[10px]" />
+          <span className="text-[13px] font-black text-white/80">Finly</span>
         </div>
         {!isLast && (
           <button onClick={skip} className="text-[13px] font-semibold text-white/40 py-1 px-3">

@@ -25,16 +25,16 @@ const AboutSheet = ({ onClose }: { onClose: () => void }) => (
   >
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-base font-bold text-foreground">About SmartSpend</h2>
+        <h2 className="text-base font-bold text-foreground">About Finly</h2>
         <button onClick={onClose} className="w-8 h-8 rounded-full bg-muted flex items-center justify-center">
           <X className="w-4 h-4 text-muted-foreground" />
         </button>
       </div>
 
       <div className="flex items-center gap-4 mb-6 pb-6 border-b border-border/30">
-        <img src="/icons/icon-192.png" alt="SmartSpend" className="w-14 h-14 rounded-2xl shadow-md" />
+        <img src="/icons/icon-192.png" alt="Finly" className="w-14 h-14 rounded-2xl shadow-md" />
         <div>
-          <p className="text-base font-bold text-foreground">SmartSpend</p>
+          <p className="text-base font-bold text-foreground">Finly</p>
           <p className="text-sm text-muted-foreground">Personal Finance Tracker</p>
           <p className="text-xs text-muted-foreground/60 mt-1">Version {APP_VERSION}</p>
         </div>
@@ -57,7 +57,7 @@ const AboutSheet = ({ onClose }: { onClose: () => void }) => (
       </div>
 
       <p className="text-[11px] text-center text-muted-foreground/50">
-        © 2025 SmartSpend. Made with ❤️ for India 🇮🇳
+        © 2025 Finly. Made with ❤️ for India 🇮🇳
       </p>
     </div>
     <div className="h-[env(safe-area-inset-bottom)]" />
@@ -151,7 +151,7 @@ const NotificationSheet = ({ onClose, onEnable }: { onClose: () => void; onEnabl
         {current === "denied" ? (
           <div className="bg-destructive/10 rounded-2xl p-4 mb-4">
             <p className="text-sm font-semibold text-destructive mb-1">Notifications Blocked</p>
-            <p className="text-xs text-muted-foreground">You've blocked notifications. Go to your browser/phone Settings → SmartSpend → allow Notifications.</p>
+            <p className="text-xs text-muted-foreground">You've blocked notifications. Go to your browser/phone Settings → Finly → allow Notifications.</p>
           </div>
         ) : current === "granted" ? (
           <div className="bg-success/10 rounded-2xl p-4 mb-4 flex items-center gap-3">
@@ -224,7 +224,7 @@ const Profile = () => {
   };
 
   const handleRate = () => {
-    window.open("https://github.com/srinu6663/SmartSpend", "_blank");
+    window.open("https://github.com/srinu6663/Finly", "_blank");
     toast.success("Thank you for your support! ⭐");
   };
 
@@ -272,7 +272,7 @@ const Profile = () => {
         },
         {
           icon: Star,
-          label: "Rate SmartSpend",
+          label: "Rate Finly",
           color: "#F59E0B",
           onClick: handleRate,
         },
@@ -424,7 +424,7 @@ const Profile = () => {
           transition={{ delay: 0.35 }}
           className="text-center text-[11px] text-muted-foreground/40 font-medium"
         >
-          SmartSpend v{APP_VERSION} · Made for India 🇮🇳
+          Finly v{APP_VERSION} · Made for India 🇮🇳
         </motion.p>
       </main>
     </div>

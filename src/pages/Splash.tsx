@@ -47,7 +47,7 @@ const Splash = () => {
           className="mb-7"
         >
           <div className="w-20 h-20 rounded-[22px] overflow-hidden shadow-xl">
-            <img src="/icons/icon-192.png" alt="SmartSpend" className="w-full h-full object-cover" />
+            <img src="/icons/icon-192.png" alt="Finly" className="w-full h-full object-cover" />
           </div>
         </motion.div>
 
@@ -58,7 +58,7 @@ const Splash = () => {
           transition={{ delay: 0.3, duration: 0.45 }}
           className="text-[26px] font-black text-white tracking-tight"
         >
-          SmartSpend
+          Finly
         </motion.h1>
 
         {/* Tagline */}

@@ -17,11 +17,11 @@ const messaging = firebase.messaging();
 
 // Handle background messages
 messaging.onBackgroundMessage((payload) => {
-  console.log("[SmartSpend SW] Background message:", payload);
+  console.log("[Finly SW] Background message:", payload);
 
   const { title, body, icon } = payload.notification || {};
 
-  self.registration.showNotification(title || "SmartSpend", {
+  self.registration.showNotification(title || "Finly", {
     body: body || "You have a new notification",
     icon: icon || "/icons/icon-192.png",
     badge: "/icons/icon-192.png",

@@ -1,4 +1,4 @@
-# SmartSpend — Personal Finance Tracker 💰
+# Finly — Personal Finance Tracker 💰
 
 A modern, mobile-first personal finance and budget tracking app built for India. Track your income, expenses, and multiple wallets all in one place.
 
