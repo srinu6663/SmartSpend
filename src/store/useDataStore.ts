@@ -80,14 +80,14 @@ interface DataState {
   fetchWallets: () => Promise<void>;
   fetchSubscriptions: () => Promise<void>;
   fetchGoals: () => Promise<void>;
-  addTransaction: (transaction: Omit<Transaction, 'id' | 'categories' | 'wallets'>) => Promise<{ error: any }>;
-  updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<{ error: any }>;
-  deleteTransaction: (id: string) => Promise<{ error: any }>;
-  upsertBudget: (budget: Omit<Budget, 'id' | 'categories'>) => Promise<{ error: any }>;
-  addWallet: (wallet: Omit<Wallet, 'id' | 'user_id'>) => Promise<{ error: any }>;
-  addSubscription: (sub: Omit<Subscription, 'id' | 'user_id'>) => Promise<{ error: any }>;
-  addGoal: (goal: Omit<Goal, 'id' | 'user_id' | 'current_amount'>) => Promise<{ error: any }>;
-  updateGoalAmount: (id: string, amount: number) => Promise<{ error: any }>;
+  addTransaction: (transaction: Omit<Transaction, 'id' | 'categories' | 'wallets'>) => Promise<{ error: Error | null }>;
+  updateTransaction: (id: string, updates: Partial<Transaction>) => Promise<{ error: Error | null }>;
+  deleteTransaction: (id: string) => Promise<{ error: Error | null }>;
+  upsertBudget: (budget: Omit<Budget, 'id' | 'categories'>) => Promise<{ error: Error | null }>;
+  addWallet: (wallet: Omit<Wallet, 'id' | 'user_id'>) => Promise<{ error: Error | null }>;
+  addSubscription: (sub: Omit<Subscription, 'id' | 'user_id'>) => Promise<{ error: Error | null }>;
+  addGoal: (goal: Omit<Goal, 'id' | 'user_id' | 'current_amount'>) => Promise<{ error: Error | null }>;
+  updateGoalAmount: (id: string, amount: number) => Promise<{ error: Error | null }>;
 }
 
 export const useDataStore = create<DataState>((set, get) => ({
@@ -204,7 +204,7 @@ export const useDataStore = create<DataState>((set, get) => ({
       if (!user) throw new Error("User not authenticated");
 
       // Build insert payload — omit null/undefined optional fields to avoid DB constraint issues
-      const payload: Record<string, any> = {
+      const payload: Record<string, string | number | null> = {
         user_id: user.id,
         amount: transaction.amount,
         type: transaction.type,

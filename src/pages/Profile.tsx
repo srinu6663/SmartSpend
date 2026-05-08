@@ -198,8 +198,8 @@ const Profile = () => {
     try {
       await signOut();
       toast.success("Logged out successfully");
-    } catch (error: any) {
-      toast.error(error.message || "Failed to log out");
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : "Failed to log out");
     }
   };
 

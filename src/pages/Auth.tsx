@@ -86,13 +86,14 @@ export default function Auth() {
         setView('sign_in');
         setPassword("");
       }
-    } catch (error: any) {
-      if (error.message.includes('rate limit')) {
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : 'Authentication failed';
+      if (msg.includes('rate limit')) {
         toast.error("Rate limit hit! Wait 1 hour OR disable 'Confirm Email' in Supabase.");
-      } else if (error.message.includes('Email not confirmed')) {
+      } else if (msg.includes('Email not confirmed')) {
         toast.error("Account not confirmed! Check your email for the confirmation link.");
       } else {
-        toast.error(error.message || "Authentication failed");
+        toast.error(msg || "Authentication failed");
       }
     } finally {
       setLoading(false);

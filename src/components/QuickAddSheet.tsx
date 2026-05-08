@@ -122,7 +122,7 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
 
     if (error) {
       console.error('Transaction save error:', error);
-      toast.error(`Could not save: ${(error as any)?.message || "Unknown error"}`);
+      toast.error(`Could not save: ${(error as Error)?.message || "Unknown error"}`);
     } else {
       const label = txType === 'expense' ? 'Expense' : txType === 'income' ? 'Income' : 'Transfer';
       toast.success(`${label} of ₹${parsedAmount.toLocaleString('en-IN')} saved ✓`);

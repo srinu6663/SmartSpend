@@ -29,7 +29,7 @@ const WalletAddSheet = ({ open, onClose }: Props) => {
     
     const { error } = await addWallet({
       name: name.trim(),
-      type: type.id as any,
+      type: type.id as 'cash' | 'bank' | 'credit' | 'savings' | 'investment',
       balance: parseFloat(balance || "0"),
       color: type.color
     });

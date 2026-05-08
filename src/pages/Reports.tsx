@@ -64,7 +64,7 @@ const Reports = () => {
     if (!t.note || t.type !== 'expense') return acc;
     const tags = t.note.match(/#[\w]+/g) || [];
     tags.forEach(tag => {
-       let existing = acc.find(x => x.tag === tag);
+       const existing = acc.find(x => x.tag === tag);
        if (existing) {
          existing.amount += Number(t.amount);
          existing.count += 1;

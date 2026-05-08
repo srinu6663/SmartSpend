@@ -35,7 +35,7 @@ export default function SubscriptionAddSheet({ open, onClose }: Props) {
     const { error } = await addSubscription({
       name: name.trim(),
       amount: parseFloat(amount),
-      billing_cycle: cycle as any,
+      billing_cycle: cycle as 'monthly' | 'yearly' | 'weekly',
       next_billing_date: date.toISOString().split('T')[0],
       color
     });

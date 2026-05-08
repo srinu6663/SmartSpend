@@ -43,7 +43,7 @@ Return ONLY 4 insights, one per line, no numbering, no bullets.`;
       const text = result.response.text();
       const lines = text
         .split("\n")
-        .map(l => l.replace(/^[\-\*\d\.\s]+/, "").trim())
+        .map(l => l.replace(/^[-*\d.\s]+/, "").trim())
         .filter(l => l.length > 10)
         .slice(0, 4);
 
