@@ -3,25 +3,42 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
 
-// Function triggered by Supabase Database Webhook (INSERT on auth.users or public.profiles)
 serve(async (req) => {
   try {
     const body = await req.json();
-    console.log("Webhook payload:", body);
+    console.log("Webhook full payload:", JSON.stringify(body));
 
-    // Get the email from the payload (auth.users inserts usually have record.email)
-    const email = body?.record?.email;
-    const name = body?.record?.raw_user_meta_data?.full_name || "there";
+    // Supabase Database Webhooks wrap data in { record: {...} }
+    // Direct calls may send { email, full_name } flat
+    const record = body?.record ?? body;
+
+    // Try to find email from multiple possible locations
+    const email =
+      record?.email ??
+      record?.raw_user_meta_data?.email ??
+      body?.email ??
+      null;
+
+    // Try to find name
+    const name =
+      record?.raw_user_meta_data?.full_name ??
+      record?.full_name ??
+      body?.full_name ??
+      "there";
 
     if (!email) {
-      return new Response(JSON.stringify({ error: "No email provided in payload" }), { status: 400 });
+      console.warn("No email found in payload, skipping.");
+      return new Response(JSON.stringify({ skipped: true, reason: "no email" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     const htmlContent = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
         <h1 style="color: #4F46E5;">Welcome to SmartSpend, ${name}! 🎉</h1>
         <p>We're thrilled to have you on board. Managing your personal finances is about to get a whole lot easier.</p>
-        
+
         <div style="background-color: #F3F4F6; padding: 20px; border-radius: 8px; margin: 20px 0;">
           <h3 style="margin-top: 0; color: #111;">3 Quick Tips to Get Started:</h3>
           <ol style="margin-bottom: 0;">
@@ -43,7 +60,7 @@ serve(async (req) => {
         Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
-        from: "SmartSpend <onboarding@resend.dev>", 
+        from: "SmartSpend <onboarding@resend.dev>",
         to: [email],
         subject: "Welcome to SmartSpend! 🎉",
         html: htmlContent,
@@ -51,15 +68,19 @@ serve(async (req) => {
     });
 
     const data = await res.json();
-    return new Response(JSON.stringify(data), {
-      status: res.ok ? 200 : 400,
+    console.log("Resend response:", JSON.stringify(data));
+
+    // Always return 200 — even if Resend fails, we don't want Supabase to retry
+    return new Response(JSON.stringify({ success: res.ok, data }), {
+      status: 200,
       headers: { "Content-Type": "application/json" },
     });
 
-  } catch (error: any) {
-    console.error("Signup Webhook Error:", error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
+  } catch (err) {
+    console.error("Unhandled error:", err);
+    // Still return 200 to prevent Supabase webhook retry loops
+    return new Response(JSON.stringify({ error: String(err) }), {
+      status: 200,
       headers: { "Content-Type": "application/json" },
     });
   }
