@@ -124,7 +124,12 @@ async function invokeAI<T>(body: Record<string, unknown>): Promise<T> {
     if (response && typeof response.json === "function") {
       try {
         const parsed = await response.clone().json();
-        if (parsed?.error) throw new AIError(parsed.error, response.status);
+        if (parsed?.error) {
+          // `detail` carries the (already key-redacted) upstream reason. Log it
+          // so a configuration failure is diagnosable, but keep the toast short.
+          if (parsed.detail) console.error("AI function detail:", parsed.detail);
+          throw new AIError(parsed.error, response.status);
+        }
       } catch (e) {
         if (e instanceof AIError) throw e;
       }

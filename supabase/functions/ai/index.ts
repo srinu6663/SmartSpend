@@ -94,13 +94,22 @@ async function callGemini(body: unknown): Promise<Record<string, unknown>> {
     const data = await res.json();
     if (!res.ok) {
       const message = data?.error?.message ?? `Gemini returned HTTP ${res.status}`;
-      throw new Error(message);
+      throw new Error(`Gemini HTTP ${res.status}: ${message}`);
     }
 
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+    // 2.5 models can emit several parts; take the first with actual text rather
+    // than assuming parts[0] is it.
+    const parts = data?.candidates?.[0]?.content?.parts;
+    const text = Array.isArray(parts)
+      ? parts.map((p: Record<string, unknown>) => p?.text).find((t: unknown) => typeof t === "string" && t.length > 0)
+      : undefined;
+
     if (!text) {
       const reason = data?.candidates?.[0]?.finishReason ?? "no content";
-      throw new Error(`Model returned no usable output (${reason})`);
+      const blocked = data?.promptFeedback?.blockReason;
+      throw new Error(
+        `Model returned no usable output (finishReason=${reason}${blocked ? `, blocked=${blocked}` : ""})`
+      );
     }
 
     // responseMimeType is application/json, so this is already clean JSON —
@@ -510,13 +519,43 @@ serve(async (req: Request) => {
         return json({ error: `Unknown action: ${String(payload.action)}` }, 400);
     }
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unknown error";
+    const raw = err instanceof Error ? err.message : "Unknown error";
+    // The API key is passed as a URL query parameter, so a transport-level error
+    // can echo it back. Redact before this message goes anywhere.
+    const message = redactSecrets(raw);
+
     console.error(`ai/${payload.action} failed:`, message);
-    // Don't leak upstream internals to the client.
-    const isTimeout = message.includes("abort");
-    return json(
-      { error: isTimeout ? "The AI request timed out. Please try again." : "AI request failed." },
-      isTimeout ? 504 : 502
-    );
+
+    const isTimeout = /abort|timed out/i.test(message);
+    if (isTimeout) {
+      return json({ error: "The AI request timed out. Please try again." }, 504);
+    }
+
+    // Surface the upstream reason. Returning a bare "AI request failed" made
+    // configuration problems (disabled key, quota, key restrictions) impossible
+    // to diagnose from the client, which is the common case for a personal app.
+    return json({ error: friendlyReason(message), detail: message }, 502);
   }
 });
+
+/** Strips anything that looks like an API key from a message. */
+function redactSecrets(text: string): string {
+  let out = text;
+  if (GEMINI_API_KEY) out = out.split(GEMINI_API_KEY).join("[REDACTED]");
+  // Google API keys are AIza + 35 chars; catch any others defensively.
+  return out.replace(/AIza[0-9A-Za-z_-]{35}/g, "[REDACTED]");
+}
+
+/** Maps common upstream failures to something actionable. */
+function friendlyReason(message: string): string {
+  if (/leaked/i.test(message)) return "This Gemini API key was flagged as leaked. Create a new key.";
+  if (/API key not valid|API_KEY_INVALID/i.test(message)) return "The Gemini API key is not valid.";
+  if (/quota|RESOURCE_EXHAUSTED|429/i.test(message)) return "Gemini quota exceeded. Try again later.";
+  if (/PERMISSION_DENIED|403/i.test(message)) {
+    return "Gemini rejected the key (403). Check it has no HTTP-referrer restriction and that the Generative Language API is enabled.";
+  }
+  if (/not found|NOT_FOUND|404/i.test(message)) return "The Gemini model name was rejected. It may be unavailable for this key.";
+  if (/Invalid JSON payload|INVALID_ARGUMENT|400/i.test(message)) return "Gemini rejected the request format.";
+  if (/no usable output/i.test(message)) return "The model returned no answer. Try rephrasing.";
+  return "AI request failed.";
+}
