@@ -27,3 +27,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Capacitor — generated native project (regenerate with: npx cap add android)
+# Keep the custom plugin + manifest, ignore build output
+android/app/build/
+android/build/
+android/.gradle/
+android/app/src/main/assets/public/
+android/local.properties

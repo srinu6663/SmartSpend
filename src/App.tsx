@@ -14,6 +14,8 @@ import Auth from "@/pages/Auth";
 import BackendErrorScreen from "@/components/BackendErrorScreen";
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from "@/lib/supabase";
 import { startKeepAlive } from "@/lib/keepAlive";
+import { SmsReader, isSmsAvailable } from "@/lib/smsReader";
+import { handleIncomingSMS, scanInbox, isImportEnabled } from "@/lib/smsImport";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useDataStore } from "@/store/useDataStore";
 
@@ -137,6 +139,35 @@ const App = () => {
   useEffect(() => {
     if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return;
     return startKeepAlive({ url: SUPABASE_URL, apiKey: SUPABASE_ANON_KEY });
+  }, []);
+
+  // Live SMS import (Android build, opt-in only). One listener for the app's
+  // lifetime — registering per screen would import each message several times.
+  useEffect(() => {
+    if (!isSmsAvailable() || !isImportEnabled()) return;
+
+    let handle: { remove: () => Promise<void> } | null = null;
+    let cancelled = false;
+
+    void (async () => {
+      await SmsReader.startWatching();
+      const listener = await SmsReader.addListener("smsReceived", (message) => {
+        void handleIncomingSMS(message);
+      });
+      if (cancelled) {
+        await listener.remove();
+        return;
+      }
+      handle = listener;
+      // Catch up on anything that arrived while the app was closed.
+      void scanInbox();
+    })();
+
+    return () => {
+      cancelled = true;
+      void handle?.remove();
+      void SmsReader.stopWatching();
+    };
   }, []);
 
   return (

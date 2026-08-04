@@ -9,7 +9,9 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useDataStore } from "@/store/useDataStore";
 import { toast } from "sonner";
 import GoalsList from "@/components/GoalsList";
+import SmsImportCard from "@/components/SmsImportCard";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { toDateString } from "@/lib/date";
 
 // ── Helpers ────────────────────────────────────────────────
 const APP_VERSION = "1.2.0";
@@ -216,7 +218,7 @@ const Profile = () => {
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `smartspend_export_${new Date().toISOString().split("T")[0]}.csv`;
+    link.download = `finly_export_${toDateString()}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -355,6 +357,11 @@ const Profile = () => {
         {/* Goals */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
           <GoalsList />
+        </motion.div>
+
+        {/* SMS auto-import (Android build only) */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+          <SmsImportCard />
         </motion.div>
 
         {/* Settings */}
