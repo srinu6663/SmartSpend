@@ -6,6 +6,7 @@ import { useDataStore } from "@/store/useDataStore";
 import { supabase } from "@/lib/supabase";
 import ReceiptScanner from "@/components/ReceiptScanner";
 import { formatIndianLive, validateTransaction } from "@/lib/finance";
+import { toDateString } from "@/lib/date";
 
 interface Props {
   open: boolean;
@@ -16,7 +17,10 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
   const [amount, setAmount] = useState("0"); // raw numeric string, no commas
   const [txType, setTxType] = useState<'expense'|'income'|'transfer'>('expense');
   const [note, setNote] = useState("");
-  const [receiptFile, setReceiptFile] = useState<File | null>(null);
+  /** Blob, not File: the scanner returns a re-encoded image with no filename. */
+  const [receiptFile, setReceiptFile] = useState<Blob | null>(null);
+  /** Set by the receipt scanner; empty means "today". */
+  const [txDate, setTxDate] = useState<string>("");
   const { addTransaction, categories, wallets } = useDataStore();
   
   const typeCategories = categories.filter(c => c.type === (txType === 'transfer' ? 'expense' : txType));
@@ -88,12 +92,14 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
     // Upload receipt if exists
     let receiptUrl = null;
     if (receiptFile) {
-      const fileExt = receiptFile.name.split('.').pop();
+      // Scanner hands back a compressed Blob (no .name), so derive the extension
+      // from the MIME type instead of a filename that may not exist.
+      const fileExt = (receiptFile.type.split('/')[1] || 'jpg').replace('jpeg', 'jpg');
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('receipts')
-        .upload(fileName, receiptFile);
+        .upload(fileName, receiptFile, { contentType: receiptFile.type || 'image/jpeg' });
 
       if (uploadError) {
         console.error('Receipt upload error:', uploadError);
@@ -104,7 +110,10 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
       }
     }
 
-    const date = new Date().toISOString().split('T')[0];
+    // Use the scanned/selected date when present. Note this is built from LOCAL
+    // date parts — toISOString() is UTC, which dated late-evening IST entries to
+    // the previous day.
+    const date = txDate || toDateString();
 
     const { error } = await addTransaction({
       amount: parsedAmount,
@@ -129,6 +138,7 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
       setAmount("0");
       setNote("");
       setReceiptFile(null);
+      setTxDate("");
       onClose();
     }
   };
@@ -283,14 +293,19 @@ const QuickAddSheet = ({ open, onClose }: Props) => {
                 className="flex-1 bg-muted rounded-xl px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground outline-none focus:ring-2 focus:ring-primary/20 transition-shadow"
               />
               <ReceiptScanner
-                onResult={(result) => {
+                onResult={(result, image) => {
+                  // Keep the compressed image so it actually gets uploaded —
+                  // previously the scan ran and the file was thrown away.
+                  setReceiptFile(image);
+
                   if (result.amount) setAmount(String(result.amount));
                   if (result.merchant) setNote(prev => prev || result.merchant!);
-                  
+                  if (result.date) setTxDate(result.date);
+
                   if (result.type && (result.type === 'expense' || result.type === 'income')) {
                     setTxType(result.type);
                   }
-                  
+
                   if (result.category) {
                     // Try to map Gemini's generic category back to user's category library
                     const match = categories.find(c =>

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Bell } from "lucide-react";
+import { Bell, MessageCircle } from "lucide-react";
 import SummaryCards from "@/components/SummaryCards";
 import WalletList from "@/components/WalletList";
 import SpendingChart from "@/components/SpendingChart";
@@ -12,11 +12,13 @@ import AIInsightsCard from "@/components/AIInsightsCard";
 import FAB from "@/components/FAB";
 import QuickAddSheet from "@/components/QuickAddSheet";
 import NotificationsPanel from "@/components/NotificationsPanel";
+import AIChatSheet from "@/components/AIChatSheet";
 import { useAuthStore } from "@/store/useAuthStore";
 
 const Dashboard = () => {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const { user } = useAuthStore();
 
   const hour = new Date().getHours();
@@ -59,6 +61,26 @@ const Dashboard = () => {
         <SummaryCards />
         <WalletList />
         <AIInsightsCard />
+
+        {/* Entry point to the conversational assistant */}
+        <div className="mx-4">
+          <button
+            type="button"
+            onClick={() => setChatOpen(true)}
+            className="w-full flex items-center gap-3 rounded-2xl border border-border px-4 py-3.5 text-left active:scale-[0.99] transition-transform"
+          >
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+              <MessageCircle className="w-4 h-4 text-primary" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-sm font-bold leading-none">Ask about your money</p>
+              <p className="text-[11px] text-muted-foreground mt-1 truncate">
+                "How much did I spend on food this month?"
+              </p>
+            </div>
+          </button>
+        </div>
+
         <InsightsStrip />
         <SpendingChart />
         <WeeklyChart />
@@ -69,6 +91,7 @@ const Dashboard = () => {
       <FAB onClick={() => setQuickAddOpen(true)} />
       <QuickAddSheet open={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
       <NotificationsPanel open={notifOpen} onClose={() => setNotifOpen(false)} />
+      <AIChatSheet open={chatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );
 };

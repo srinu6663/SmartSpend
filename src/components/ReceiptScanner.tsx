@@ -1,110 +1,116 @@
-import { useState, useCallback } from "react";
-import { Camera, X, Loader2, CheckCircle2, Sparkles } from "lucide-react";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { useState, useCallback, useRef } from "react";
+import { Camera, X, Loader2, CheckCircle2, Sparkles, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
-
-interface OCRResult {
-  amount: number | null;
-  merchant: string | null;
-  date: string | null;
-  type: 'expense' | 'income' | null;
-  category: string | null;
-}
+import { compressImage, scanReceipt, AIError, type ReceiptScan } from "@/lib/ai";
 
 interface Props {
-  onResult: (result: OCRResult) => void;
+  /** Receives the extracted fields plus the compressed image to upload. */
+  onResult: (result: ReceiptScan, image: Blob) => void;
 }
+
+/** Below this the extraction is shown as "check this" rather than confirmed. */
+const LOW_CONFIDENCE = 0.5;
 
 const ReceiptScanner = ({ onResult }: Props) => {
   const [scanning, setScanning] = useState(false);
-  const [scanned, setScanned] = useState(false);
+  const [scan, setScan] = useState<ReceiptScan | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const previewUrl = useRef<string | null>(null);
 
-  const handleFile = useCallback(async (file: File) => {
-    setScanning(true);
-    setScanned(false);
-
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = (e) => setPreview(e.target?.result as string);
-    reader.readAsDataURL(file);
-
-    try {
-      // Convert to base64 for Gemini Vision
-      const base64 = await new Promise<string>((resolve, reject) => {
-        const r = new FileReader();
-        r.onload = () => {
-          const result = r.result as string;
-          resolve(result.split(",")[1]); // remove data:image/...;base64, prefix
-        };
-        r.onerror = reject;
-        r.readAsDataURL(file);
-      });
-
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-
-      const result = await model.generateContent([
-        {
-          inlineData: {
-            mimeType: file.type || "image/jpeg",
-            data: base64,
-          },
-        },
-        `You are an advanced receipt and invoice parser for a personal finance app. Analyze the image and extract the numeric total amount, the merchant or source name, the date, whether it is an 'expense' (you paid) or 'income' (you received), and a clear single-word category guess (e.g. Food, Travel, Shopping, Salary, Utilities).
-Return ONLY a JSON object like: {"amount": 450, "merchant": "Swiggy", "date": "2024-03-15", "type": "expense", "category": "Food"}
-If you can't find a field, use null. Amount should be a number only.`
-      ]);
-
-      const text = result.response.text().trim();
-      const cleanText = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]) as OCRResult;
-        onResult(parsed);
-        setScanned(true);
-        toast.success("Receipt scanned! ✓ Amount pre-filled");
-      } else {
-        throw new Error("Could not parse receipt");
-      }
-    } catch (err) {
-      console.error("OCR Error:", err);
-      toast.error("Could not read receipt — please enter manually");
-    } finally {
-      setScanning(false);
+  const releasePreview = () => {
+    if (previewUrl.current) {
+      URL.revokeObjectURL(previewUrl.current); // object URLs leak until revoked
+      previewUrl.current = null;
     }
-  }, [onResult]);
+  };
+
+  const handleFile = useCallback(
+    async (file: File) => {
+      setScanning(true);
+      setScan(null);
+
+      try {
+        // Downscale first: it speeds up the upload, cuts model cost, and the
+        // same compressed blob is what gets stored as the receipt.
+        const { base64, mimeType, blob } = await compressImage(file);
+
+        releasePreview();
+        previewUrl.current = URL.createObjectURL(blob);
+        setPreview(previewUrl.current);
+
+        const result = await scanReceipt(base64, mimeType);
+        setScan(result);
+        onResult(result, blob);
+
+        if (result.amount === null) {
+          toast.warning("Couldn't read the total — please type the amount.");
+        } else if (result.confidence < LOW_CONFIDENCE) {
+          toast.warning(`Read ₹${result.amount.toLocaleString("en-IN")}, but I'm unsure — please check.`);
+        } else {
+          const parts = [`₹${result.amount.toLocaleString("en-IN")}`];
+          if (result.merchant) parts.push(result.merchant);
+          toast.success(`Scanned: ${parts.join(" · ")}`);
+        }
+      } catch (err) {
+        console.error("Receipt scan failed:", err);
+        toast.error(
+          err instanceof AIError ? err.message : "Could not read the receipt — please enter it manually."
+        );
+        releasePreview();
+        setPreview(null);
+      } finally {
+        setScanning(false);
+      }
+    },
+    [onResult]
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) handleFile(file);
+    if (file) void handleFile(file);
+    e.target.value = ""; // allow re-picking the same file
   };
 
   const clear = () => {
+    releasePreview();
     setPreview(null);
-    setScanned(false);
+    setScan(null);
   };
+
+  const lowConfidence = scan !== null && (scan.amount === null || scan.confidence < LOW_CONFIDENCE);
 
   return (
     <div className="relative flex shrink-0">
       {preview ? (
         <div className="relative w-11 h-11">
-          <img src={preview} alt="Receipt" className="w-11 h-11 rounded-xl object-cover" />
+          <img src={preview} alt="Receipt preview" className="w-11 h-11 rounded-xl object-cover" />
+
           {scanning && (
             <div className="absolute inset-0 rounded-xl bg-black/50 flex items-center justify-center">
               <Loader2 className="w-4 h-4 text-white animate-spin" />
             </div>
           )}
-          {scanned && (
-            <div className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-success flex items-center justify-center">
-              <CheckCircle2 className="w-3 h-3 text-white" />
+
+          {!scanning && scan && (
+            <div
+              className={`absolute -bottom-1 -left-1 w-4 h-4 rounded-full flex items-center justify-center ${
+                lowConfidence ? "bg-warning" : "bg-success"
+              }`}
+              title={lowConfidence ? "Low confidence — please check the amount" : "Scanned"}
+            >
+              {lowConfidence ? (
+                <AlertTriangle className="w-2.5 h-2.5 text-white" />
+              ) : (
+                <CheckCircle2 className="w-3 h-3 text-white" />
+              )}
             </div>
           )}
+
           {!scanning && (
             <button
+              type="button"
               onClick={clear}
+              aria-label="Remove receipt"
               className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-destructive flex items-center justify-center"
             >
               <X className="w-2.5 h-2.5 text-white" />
@@ -117,9 +123,11 @@ If you can't find a field, use null. Amount should be a number only.`
             type="file"
             accept="image/*"
             onChange={handleChange}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            disabled={scanning}
+            aria-label="Scan a receipt with AI"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 disabled:cursor-wait"
           />
-          <button className="w-11 h-11 rounded-xl bg-muted flex flex-col items-center justify-center gap-0.5 pointer-events-none">
+          <div className="w-11 h-11 rounded-xl bg-muted flex flex-col items-center justify-center gap-0.5 pointer-events-none">
             {scanning ? (
               <Loader2 className="w-4 h-4 text-primary animate-spin" />
             ) : (
@@ -130,7 +138,7 @@ If you can't find a field, use null. Amount should be a number only.`
                 </span>
               </>
             )}
-          </button>
+          </div>
         </>
       )}
     </div>
