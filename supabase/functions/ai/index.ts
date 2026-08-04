@@ -33,8 +33,15 @@ const RAW_GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
  */
 const GEMINI_API_KEY = RAW_GEMINI_KEY?.trim().replace(/^['"]|['"]$/g, "").trim();
 
-/** Google API keys are literally "AIza" followed by 35 URL-safe characters. */
-const GEMINI_KEY_SHAPE = /^AIza[0-9A-Za-z_-]{35}$/;
+/**
+ * Google issues Gemini keys in more than one format — the long-standing
+ * "AIza" + 35 chars, and a newer AI Studio format prefixed "AQ.". Both are
+ * valid, so this only rejects values that are obviously not a key at all
+ * (empty, or far too short). Asserting a single format previously flagged a
+ * perfectly good key as malformed, which sent debugging down the wrong path.
+ */
+const GEMINI_KEY_SHAPES = [/^AIza[0-9A-Za-z_-]{35}$/, /^AQ\.[0-9A-Za-z._-]{20,}$/];
+const looksLikeKey = (k: string) => GEMINI_KEY_SHAPES.some((re) => re.test(k));
 
 /**
  * Non-sensitive description of the configured key, for diagnostics.
@@ -42,17 +49,17 @@ const GEMINI_KEY_SHAPE = /^AIza[0-9A-Za-z_-]{35}$/;
  */
 function describeKeyShape(): string {
   if (!RAW_GEMINI_KEY) return "GEMINI_API_KEY is not set";
-  const trimmedDiff = RAW_GEMINI_KEY.length - (GEMINI_API_KEY?.length ?? 0);
+  const key = GEMINI_API_KEY ?? "";
+  const trimmedDiff = RAW_GEMINI_KEY.length - key.length;
   return [
-    `length=${GEMINI_API_KEY?.length ?? 0}`,
-    `expected=39`,
-    `matchesGoogleKeyFormat=${GEMINI_KEY_SHAPE.test(GEMINI_API_KEY ?? "")}`,
+    `length=${key.length}`,
+    `recognisedKeyFormat=${looksLikeKey(key)}`,
     trimmedDiff > 0 ? `strippedChars=${trimmedDiff} (quotes/whitespace were present)` : "strippedChars=0",
   ].join(", ");
 }
 
-if (GEMINI_API_KEY && !GEMINI_KEY_SHAPE.test(GEMINI_API_KEY)) {
-  console.error(`GEMINI_API_KEY does not look like a Google API key — ${describeKeyShape()}`);
+if (GEMINI_API_KEY && !looksLikeKey(GEMINI_API_KEY)) {
+  console.error(`GEMINI_API_KEY is not in a recognised format — ${describeKeyShape()}`);
 }
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
@@ -588,6 +595,12 @@ function friendlyReason(message: string): string {
     return `The Gemini API key is not valid (${describeKeyShape()}).`;
   }
   if (/quota|RESOURCE_EXHAUSTED|429/i.test(message)) return "Gemini quota exceeded. Try again later.";
+  if (/denied access/i.test(message)) {
+    return "Google has blocked this project's access to the Gemini API. Create a key in a different Google Cloud project.";
+  }
+  if (/SERVICE_DISABLED|has not been used in project|is disabled/i.test(message)) {
+    return "The Generative Language API is not enabled for this key's Google Cloud project.";
+  }
   if (/PERMISSION_DENIED|403/i.test(message)) {
     return "Gemini rejected the key (403). Check it has no HTTP-referrer restriction and that the Generative Language API is enabled.";
   }
