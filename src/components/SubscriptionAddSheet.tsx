@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { useDataStore } from "@/store/useDataStore";
+import { toDateString } from "@/lib/date";
 
 interface Props { open: boolean; onClose: () => void; }
 
@@ -36,7 +37,8 @@ export default function SubscriptionAddSheet({ open, onClose }: Props) {
       name: name.trim(),
       amount: parseFloat(amount),
       billing_cycle: cycle as 'monthly' | 'yearly' | 'weekly',
-      next_billing_date: date.toISOString().split('T')[0],
+      // Local date: toISOString() billed a day early east of UTC.
+      next_billing_date: toDateString(date),
       color
     });
     

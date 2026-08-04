@@ -106,15 +106,22 @@ export interface Transaction {
   categories?: { name?: string; color?: string; icon?: string | null } | null;
 }
 
-/** Filter transactions to a specific calendar month */
+/**
+ * Filter transactions to a specific calendar month.
+ *
+ * Compares the stored YYYY-MM-DD text directly rather than going through Date.
+ * `new Date("2024-03-01")` parses as UTC midnight, but getMonth() reads local
+ * time — so for any timezone behind UTC the 1st of a month landed in the
+ * previous month, silently dropping it from that month's totals.
+ */
 export const filterByMonth = <T extends { date: string }>(
   items: T[],
   year: number,
   month: number // 0-indexed
 ): T[] =>
   items.filter(t => {
-    const d = new Date(t.date);
-    return d.getFullYear() === year && d.getMonth() === month;
+    const [y, m] = t.date.slice(0, 10).split('-').map(Number);
+    return y === year && m === month + 1;
   });
 
 /** Sum amounts for a specific transaction type in a given month */

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { supabase } from '@/lib/supabase';
-import { validateTransaction, computeNewBalance, round2 } from '@/lib/finance';
+import { validateTransaction, round2 } from '@/lib/finance';
+import { monthKey } from '@/lib/date';
 
 export interface Wallet {
   id: string;
@@ -74,6 +75,8 @@ interface DataState {
   loading: boolean;
 
   // Actions
+  /** Re-reads everything a transaction change can affect, in parallel. */
+  refreshAll: () => Promise<void>;
   fetchTransactions: () => Promise<void>;
   fetchCategories: () => Promise<void>;
   fetchBudgets: (month: string) => Promise<void>;
@@ -98,6 +101,14 @@ export const useDataStore = create<DataState>((set, get) => ({
   subscriptions: [],
   goals: [],
   loading: false,
+
+  refreshAll: async () => {
+    await Promise.all([
+      get().fetchTransactions(),
+      get().fetchWallets(),
+      get().fetchBudgets(monthKey()),
+    ]);
+  },
 
   fetchTransactions: async () => {
     set({ loading: true });
@@ -203,26 +214,10 @@ export const useDataStore = create<DataState>((set, get) => ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Build insert payload — omit null/undefined optional fields to avoid DB constraint issues
-      const payload: Record<string, string | number | null> = {
-        user_id: user.id,
-        amount: transaction.amount,
-        type: transaction.type,
-        date: transaction.date,
-      };
-      if (transaction.category_id) payload.category_id = transaction.category_id;
-      if (transaction.wallet_id) payload.wallet_id = transaction.wallet_id;
-      if (transaction.to_wallet_id) payload.to_wallet_id = transaction.to_wallet_id;
-      if (transaction.note) payload.note = transaction.note;
-      if (transaction.receipt_url) payload.receipt_url = transaction.receipt_url;
-
-      const { error } = await supabase
-        .from('transactions')
-        .insert(payload);
-
-      if (error) throw error;
-
-      // ── Step 2: Validate & compute balance changes ──
+      // ── Validate BEFORE writing anything ──
+      // This used to run *after* the insert, so a failed check (e.g. insufficient
+      // balance) left an orphaned transaction row in the database while the
+      // caller was told the save had failed.
       const amount = round2(parseFloat(String(transaction.amount)));
       const validation = validateTransaction({
         amount,
@@ -232,40 +227,28 @@ export const useDataStore = create<DataState>((set, get) => ({
         walletBalance: get().wallets.find(w => w.id === transaction.wallet_id)?.balance,
       });
       if (!validation.valid) throw new Error(validation.error);
-      if (transaction.type === 'transfer' && transaction.wallet_id && transaction.to_wallet_id) {
-        const fromWallet = get().wallets.find(w => w.id === transaction.wallet_id);
-        const toWallet = get().wallets.find(w => w.id === transaction.to_wallet_id);
-        if (!fromWallet || !toWallet) throw new Error("Wallet not found for transfer");
 
-        const [res1, res2] = await Promise.all([
-          supabase.from('wallets').update({
-            balance: computeNewBalance(fromWallet.balance, amount, 'transfer', 'from')
-          }).eq('id', fromWallet.id),
-          supabase.from('wallets').update({
-            balance: computeNewBalance(toWallet.balance, amount, 'transfer', 'to')
-          }).eq('id', toWallet.id),
-        ]);
-        if (res1.error) throw res1.error;
-        if (res2.error) throw res2.error;
+      // Build insert payload — omit null/undefined optional fields to avoid DB constraint issues
+      const payload: Record<string, string | number | null> = {
+        user_id: user.id,
+        amount,
+        type: transaction.type,
+        date: transaction.date,
+      };
+      if (transaction.category_id) payload.category_id = transaction.category_id;
+      if (transaction.wallet_id) payload.wallet_id = transaction.wallet_id;
+      if (transaction.to_wallet_id) payload.to_wallet_id = transaction.to_wallet_id;
+      if (transaction.note) payload.note = transaction.note;
+      if (transaction.receipt_url) payload.receipt_url = transaction.receipt_url;
 
-      } else if (transaction.wallet_id) {
-        const wallet = get().wallets.find(w => w.id === transaction.wallet_id);
-        if (!wallet) throw new Error("Wallet not found");
+      // Wallet balances are maintained by a database trigger
+      // (0002_wallet_balance_integrity.sql), in the same transaction as this
+      // insert. The client deliberately no longer computes them: doing it here
+      // was neither atomic nor safe against concurrent writes.
+      const { error } = await supabase.from('transactions').insert(payload);
+      if (error) throw error;
 
-        const { error: balErr } = await supabase
-          .from('wallets')
-          .update({ balance: computeNewBalance(wallet.balance, amount, transaction.type) })
-          .eq('id', wallet.id);
-        if (balErr) throw balErr;
-      }
-
-      // Always re-fetch from DB to keep store perfectly in sync
-      const d = new Date();
-      await Promise.all([
-        get().fetchTransactions(),
-        get().fetchWallets(),
-        get().fetchBudgets(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`)
-      ]);
+      await get().refreshAll();
       return { error: null };
     } catch (error) {
       console.error('Error adding transaction:', error);
@@ -275,15 +258,17 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   updateTransaction: async (id, updates) => {
     try {
+      // The balance trigger reverses the old row and applies the new one, so
+      // edits to amount/type/wallet stay consistent — previously an edit drifted
+      // the wallet balance by the difference, permanently.
       const { error } = await supabase
         .from('transactions')
         .update(updates)
         .eq('id', id);
 
-      if (!error) {
-        get().fetchTransactions();
-      }
-      return { error };
+      if (error) throw error;
+      await get().refreshAll();
+      return { error: null };
     } catch (error) {
       console.error('Error updating transaction:', error);
       return { error };
@@ -292,17 +277,15 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   deleteTransaction: async (id) => {
     try {
+      // The trigger reverses this row's balance effect. Before, deleting a
+      // transaction left the wallet permanently debited.
       const { error } = await supabase
         .from('transactions')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
-      // Refresh both transactions + wallets so totals are always accurate
-      await Promise.all([get().fetchTransactions(),
-      get().fetchWallets(),
-      get().fetchBudgets(`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`)
-      ]);
+      await get().refreshAll();
       return { error: null };
     } catch (error) {
       console.error('Error deleting transaction:', error);
@@ -315,14 +298,18 @@ export const useDataStore = create<DataState>((set, get) => ({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Check if a budget already exists for this category and month
-      const { data: existing } = await supabase
+      // Check if a budget already exists for this category and month.
+      // maybeSingle(), not single(): single() treats "no rows" as an error
+      // (PGRST116) and returns a 406, which was being silently swallowed.
+      const { data: existing, error: lookupError } = await supabase
         .from('budgets')
         .select('id')
         .eq('user_id', user.id)
         .eq('category_id', budget.category_id)
         .eq('month', budget.month)
-        .single();
+        .maybeSingle();
+
+      if (lookupError) throw lookupError;
 
       let error;
       if (existing) {
@@ -407,16 +394,17 @@ export const useDataStore = create<DataState>((set, get) => ({
 
   updateGoalAmount: async (id, amountToAdd) => {
     try {
-      const goal = get().goals.find(g => g.id === id);
-      if (!goal) throw new Error("Goal not found");
+      // Atomic server-side increment. Reading current_amount from the store and
+      // writing back the sum lost contributions whenever two happened close
+      // together, or the store was stale.
+      const { error } = await supabase.rpc('increment_goal_amount', {
+        p_goal_id: id,
+        p_delta: round2(amountToAdd),
+      });
 
-      const { error } = await supabase
-        .from('goals')
-        .update({ current_amount: goal.current_amount + amountToAdd })
-        .eq('id', id);
-
-      if (!error) get().fetchGoals();
-      return { error };
+      if (error) throw error;
+      await get().fetchGoals();
+      return { error: null };
     } catch (error) {
       console.error('Error updating goal:', error);
       return { error };

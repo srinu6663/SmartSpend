@@ -6,17 +6,19 @@ import type { Transaction } from "@/store/useDataStore";
 import TransactionCard from "@/components/TransactionCard";
 import FAB from "@/components/FAB";
 import QuickAddSheet from "@/components/QuickAddSheet";
+import { isToday, isYesterday, parseDateString } from "@/lib/date";
 
 const formatDateHeader = (dateStr: string) => {
-  const date = new Date(dateStr + "T00:00:00");
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
+  // Compared in local time. With toISOString() these labels were wrong between
+  // midnight and 05:30 IST — today's transactions read "Yesterday".
+  if (isToday(dateStr)) return "Today";
+  if (isYesterday(dateStr)) return "Yesterday";
 
-  if (dateStr === today.toISOString().split("T")[0]) return "Today";
-  if (dateStr === yesterday.toISOString().split("T")[0]) return "Yesterday";
-
-  return date.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  return parseDateString(dateStr).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "short",
+    day: "numeric",
+  });
 };
 
 const groupByDate = (txns: Transaction[]) => {

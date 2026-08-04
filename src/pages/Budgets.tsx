@@ -5,7 +5,7 @@ import { ShoppingCart, Car, Tv, Coffee, Zap, Package, Dumbbell, MoreHorizontal, 
 import { toast } from "sonner";
 import SubscriptionsList from "@/components/SubscriptionsList";
 import BudgetAddSheet from "@/components/BudgetAddSheet";
-import { startOfMonth } from "date-fns";
+import { monthKey } from "@/lib/date";
 
 const iconMap: Record<string, React.ElementType> = {
   ShoppingCart, Car, Tv, Coffee, Zap, Package, Dumbbell,
@@ -18,7 +18,10 @@ const Budgets = () => {
   
   useEffect(() => {
     fetchTransactions();
-    fetchBudgets(startOfMonth(new Date()).toISOString().split('T')[0]);
+    // monthKey(), not toISOString(): in any timezone ahead of UTC the latter
+    // returned the previous month's last day, so this asked for a month key that
+    // no budget row uses — and disagreed with the hydration in App.tsx.
+    fetchBudgets(monthKey());
   }, [fetchTransactions, fetchBudgets]);
 
   // Calculate spent amounts for each budget

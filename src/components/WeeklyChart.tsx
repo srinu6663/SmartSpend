@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { useDataStore } from "@/store/useDataStore";
+import { toDateString } from "@/lib/date";
 
 const WeeklyChart = () => {
   const { transactions } = useDataStore();
@@ -16,7 +17,9 @@ const WeeklyChart = () => {
     // Current iterations: from 6 days ago (i=0) up to today (i=6)
     const d = new Date(today);
     d.setDate(today.getDate() - (6 - i));
-    const dtString = d.toISOString().split('T')[0];
+    // Local date string — toISOString() shifted each bucket a day earlier for
+    // evening transactions, so spending landed on the wrong bar.
+    const dtString = toDateString(d);
     
     // Adjusted day index for mapping to the 'days' array
     let dayIndex = (adjustedTodayIdx - (6 - i)) % 7;
