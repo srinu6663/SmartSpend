@@ -19,7 +19,42 @@ import {
   type TransactionRow,
 } from "./queryPlan.ts";
 
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+const RAW_GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
+
+/**
+ * Normalises the key before use.
+ *
+ * Secrets set from a shell or an env file routinely arrive with a trailing
+ * newline or wrapping quotes ("supabase secrets set K=\"AIza...\""). The key goes
+ * into a URL query parameter, so a single stray character makes Gemini reply
+ * "API key not valid" — indistinguishable from a genuinely wrong key, and a
+ * miserable thing to debug. Strip the usual accidents rather than trusting the
+ * value verbatim.
+ */
+const GEMINI_API_KEY = RAW_GEMINI_KEY?.trim().replace(/^['"]|['"]$/g, "").trim();
+
+/** Google API keys are literally "AIza" followed by 35 URL-safe characters. */
+const GEMINI_KEY_SHAPE = /^AIza[0-9A-Za-z_-]{35}$/;
+
+/**
+ * Non-sensitive description of the configured key, for diagnostics.
+ * Reports length and shape only — never any part of the value itself.
+ */
+function describeKeyShape(): string {
+  if (!RAW_GEMINI_KEY) return "GEMINI_API_KEY is not set";
+  const trimmedDiff = RAW_GEMINI_KEY.length - (GEMINI_API_KEY?.length ?? 0);
+  return [
+    `length=${GEMINI_API_KEY?.length ?? 0}`,
+    `expected=39`,
+    `matchesGoogleKeyFormat=${GEMINI_KEY_SHAPE.test(GEMINI_API_KEY ?? "")}`,
+    trimmedDiff > 0 ? `strippedChars=${trimmedDiff} (quotes/whitespace were present)` : "strippedChars=0",
+  ].join(", ");
+}
+
+if (GEMINI_API_KEY && !GEMINI_KEY_SHAPE.test(GEMINI_API_KEY)) {
+  console.error(`GEMINI_API_KEY does not look like a Google API key — ${describeKeyShape()}`);
+}
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 
@@ -549,7 +584,9 @@ function redactSecrets(text: string): string {
 /** Maps common upstream failures to something actionable. */
 function friendlyReason(message: string): string {
   if (/leaked/i.test(message)) return "This Gemini API key was flagged as leaked. Create a new key.";
-  if (/API key not valid|API_KEY_INVALID/i.test(message)) return "The Gemini API key is not valid.";
+  if (/API key not valid|API_KEY_INVALID/i.test(message)) {
+    return `The Gemini API key is not valid (${describeKeyShape()}).`;
+  }
   if (/quota|RESOURCE_EXHAUSTED|429/i.test(message)) return "Gemini quota exceeded. Try again later.";
   if (/PERMISSION_DENIED|403/i.test(message)) {
     return "Gemini rejected the key (403). Check it has no HTTP-referrer restriction and that the Generative Language API is enabled.";
