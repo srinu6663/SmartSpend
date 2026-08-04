@@ -31,7 +31,20 @@ const RAW_GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
  * miserable thing to debug. Strip the usual accidents rather than trusting the
  * value verbatim.
  */
-const GEMINI_API_KEY = RAW_GEMINI_KEY?.trim().replace(/^['"]|['"]$/g, "").trim();
+const GEMINI_API_KEY = normaliseKey(RAW_GEMINI_KEY);
+
+/**
+ * A key is only ever [A-Za-z0-9._-], so strip anything else from either end.
+ *
+ * Stripping just straight quotes was not enough: a value pasted from a document
+ * or chat window arrives wrapped in CURLY quotes ("…"), which are neither
+ * whitespace nor a straight quote, so they survived and Gemini replied
+ * "API key not valid" with no hint as to why.
+ */
+function normaliseKey(raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined;
+  return raw.replace(/^[^A-Za-z0-9]+/, "").replace(/[^A-Za-z0-9._-]+$/, "");
+}
 
 /**
  * Google issues Gemini keys in more than one format — the long-standing
@@ -51,10 +64,15 @@ function describeKeyShape(): string {
   if (!RAW_GEMINI_KEY) return "GEMINI_API_KEY is not set";
   const key = GEMINI_API_KEY ?? "";
   const trimmedDiff = RAW_GEMINI_KEY.length - key.length;
+  // Characters left INSIDE the value that can't be part of a key — a space or
+  // line break mid-string means the paste itself was broken, which no amount of
+  // end-trimming can repair.
+  const innerJunk = (key.match(/[^A-Za-z0-9._-]/g) ?? []).length;
   return [
     `length=${key.length}`,
     `recognisedKeyFormat=${looksLikeKey(key)}`,
-    trimmedDiff > 0 ? `strippedChars=${trimmedDiff} (quotes/whitespace were present)` : "strippedChars=0",
+    trimmedDiff > 0 ? `strippedChars=${trimmedDiff} (stray wrapper characters removed)` : "strippedChars=0",
+    innerJunk > 0 ? `invalidCharsInside=${innerJunk}` : "invalidCharsInside=0",
   ].join(", ");
 }
 
