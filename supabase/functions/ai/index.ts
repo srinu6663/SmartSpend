@@ -18,6 +18,7 @@ import {
   type Facts,
   type TransactionRow,
 } from "./queryPlan.ts";
+import { pickModel } from "./model.ts";
 
 const RAW_GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
 
@@ -83,8 +84,40 @@ if (GEMINI_API_KEY && !looksLikeKey(GEMINI_API_KEY)) {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 
-const MODEL = "gemini-2.5-flash";
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
+const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta";
+
+/**
+ * Optional pin. Left unset, the model is discovered from the API.
+ *
+ * Hardcoding a name is what broke this before: "gemini-2.5-flash" returned
+ * "no longer available to new users" because retirement is per-project — a new
+ * project cannot use a model an older one still can. The correct name is a
+ * property of the account, not of the code.
+ */
+const MODEL_OVERRIDE = Deno.env.get("GEMINI_MODEL")?.trim() || null;
+
+/** Resolved once per isolate, then reused. */
+let cachedModel: string | null = null;
+
+async function resolveModel(): Promise<string> {
+  if (cachedModel) return cachedModel;
+
+  const res = await fetch(`${GEMINI_BASE}/models?key=${GEMINI_API_KEY}&pageSize=200`);
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    throw new Error(
+      `Gemini HTTP ${res.status}: ${body?.error?.message ?? "could not list available models"}`
+    );
+  }
+
+  const data = await res.json();
+  const chosen = pickModel(data?.models ?? [], MODEL_OVERRIDE);
+  if (!chosen) throw new Error("No Gemini model available to this API key supports generateContent");
+
+  console.log(`Using Gemini model: ${chosen}${MODEL_OVERRIDE ? " (from GEMINI_MODEL)" : " (auto-selected)"}`);
+  cachedModel = chosen;
+  return chosen;
+}
 
 /** Base64 payload ceiling (~8 MB of image). Guards cost and request size. */
 const MAX_IMAGE_BASE64_BYTES = 8 * 1024 * 1024;
@@ -140,11 +173,33 @@ async function getUser(req: Request): Promise<{ id: string } | null> {
   }
 }
 
+/**
+ * Calls the model, re-resolving once if the chosen model has been retired.
+ *
+ * A cached model name can go stale while an isolate is warm, so a 404 clears the
+ * cache and tries again with a freshly discovered model instead of failing the
+ * user's request.
+ */
 async function callGemini(body: unknown): Promise<Record<string, unknown>> {
+  try {
+    return await callGeminiOnce(body);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    const retryable = /HTTP 404|no longer available|not found/i.test(message) && cachedModel !== null;
+    if (!retryable) throw err;
+
+    console.warn(`Model ${cachedModel} rejected; re-resolving. (${message})`);
+    cachedModel = null;
+    return await callGeminiOnce(body);
+  }
+}
+
+async function callGeminiOnce(body: unknown): Promise<Record<string, unknown>> {
+  const model = await resolveModel();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
   try {
-    const res = await fetch(`${GEMINI_ENDPOINT}?key=${GEMINI_API_KEY}`, {
+    const res = await fetch(`${GEMINI_BASE}/models/${model}:generateContent?key=${GEMINI_API_KEY}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -622,7 +677,9 @@ function friendlyReason(message: string): string {
   if (/PERMISSION_DENIED|403/i.test(message)) {
     return "Gemini rejected the key (403). Check it has no HTTP-referrer restriction and that the Generative Language API is enabled.";
   }
-  if (/not found|NOT_FOUND|404/i.test(message)) return "The Gemini model name was rejected. It may be unavailable for this key.";
+  if (/no longer available|not found|NOT_FOUND|404/i.test(message)) {
+    return "No usable Gemini model was found for this API key. Set GEMINI_MODEL to a model your project can access.";
+  }
   if (/Invalid JSON payload|INVALID_ARGUMENT|400/i.test(message)) return "Gemini rejected the request format.";
   if (/no usable output/i.test(message)) return "The model returned no answer. Try rephrasing.";
   return "AI request failed.";
