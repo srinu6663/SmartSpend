@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
-import { supabase } from "@/lib/supabase";
+import { supabase, describeError, isNetworkError, probeBackend } from "@/lib/supabase";
 import { toast } from "sonner";
 import { Mail, Lock, User, Wallet, ArrowRight, Eye, EyeOff, KeyRound, Phone } from "lucide-react";
 
@@ -17,6 +17,7 @@ export default function Auth() {
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(""));
   const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState(false);
+  const [offlineReason, setOfflineReason] = useState<string | null>(null);
 
   // Listen for password recovery links (if user clicks link instead of typing OTP)
   useEffect(() => {
@@ -32,6 +33,7 @@ export default function Auth() {
   const handleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setOfflineReason(null);
 
     try {
       if (view === 'sign_in') {
@@ -88,7 +90,12 @@ export default function Auth() {
       }
     } catch (error: unknown) {
       const msg = error instanceof Error ? error.message : 'Authentication failed';
-      if (msg.includes('rate limit')) {
+      if (isNetworkError(error)) {
+        // Don't blame the user's credentials for a backend that isn't there.
+        const probe = await probeBackend();
+        setOfflineReason(probe.status === 'ok' ? null : probe.message);
+        toast.error(describeError(error, 'Authentication failed'));
+      } else if (msg.includes('rate limit')) {
         toast.error("Rate limit hit! Wait 1 hour OR disable 'Confirm Email' in Supabase.");
       } else if (msg.includes('Email not confirmed')) {
         toast.error("Account not confirmed! Check your email for the confirmation link.");
@@ -132,6 +139,13 @@ export default function Auth() {
           <h1 className="text-3xl font-bold">Finly</h1>
           <p className="text-muted-foreground">{getTitle()}</p>
         </div>
+
+        {offlineReason && (
+          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-left">
+            <p className="text-xs font-semibold text-destructive">Server unreachable</p>
+            <p className="mt-1 text-xs text-muted-foreground">{offlineReason}</p>
+          </div>
+        )}
 
         <form onSubmit={handleAuth} className="space-y-4">
           

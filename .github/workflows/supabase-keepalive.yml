@@ -1,0 +1,76 @@
+name: Supabase keep-alive
+
+# Free-tier Supabase projects auto-pause after ~7 consecutive days without
+# activity. While paused, the *.supabase.co DNS record is withdrawn, so the app
+# dies with ERR_NAME_NOT_RESOLVED. A couple of cheap requests reset that clock.
+#
+# The in-app keep-alive (src/lib/keepAlive.ts) only runs while someone has the
+# app open — this workflow is what covers a quiet week with no visitors.
+
+on:
+  schedule:
+    # 06:17 UTC every Monday and Thursday — twice a week, comfortably inside the
+    # ~7 day window even if one run is skipped or delayed. The odd minute avoids
+    # the top-of-hour congestion that makes GitHub defer scheduled runs.
+    - cron: "17 6 * * 1,4"
+  workflow_dispatch: {}
+
+# Never let two keep-alive runs overlap. Without this, a queued run plus a
+# manual dispatch can pile up into concurrent duplicates.
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping Supabase (auth + database)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -uo pipefail
+
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "::error::Missing SUPABASE_URL / SUPABASE_ANON_KEY repository secrets."
+            exit 1
+          fi
+
+          # Retry a few times: a project that is mid-restore answers 503, or 404
+          # PGRST205 while PostgREST's schema cache is cold.
+          probe() {
+            local label="$1" path="$2"
+            for attempt in 1 2 3 4 5; do
+              code=$(curl -s -o /tmp/body -w '%{http_code}' --max-time 25 \
+                -H "apikey: ${SUPABASE_ANON_KEY}" \
+                -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+                "${SUPABASE_URL}${path}") || code="000"
+
+              echo "$label attempt $attempt -> HTTP $code"
+              case "$code" in
+                2*) return 0 ;;
+              esac
+              sleep $((attempt * 15))
+            done
+            echo "::error::$label failed after 5 attempts (last HTTP $code)"
+            cat /tmp/body || true
+            return 1
+          }
+
+          # Auth keeps GoTrue warm; the REST select is what actually touches Postgres.
+          probe "auth"     "/auth/v1/health"
+          auth_rc=$?
+          probe "database" "/rest/v1/categories?select=id&limit=1"
+          db_rc=$?
+
+          if [ $auth_rc -ne 0 ] || [ $db_rc -ne 0 ]; then
+            echo "::error::Supabase is not reachable — it may be paused. Resume it in the dashboard."
+            exit 1
+          fi
+
+          echo "Supabase is awake."

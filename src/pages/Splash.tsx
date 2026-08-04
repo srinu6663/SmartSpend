@@ -14,8 +14,16 @@ const Splash = () => {
     return () => { clearTimeout(t1); clearTimeout(t2); };
   }, []);
 
+  // Hard ceiling on the splash: if auth is still resolving after this we move on
+  // anyway, so a slow/unreachable backend can never park the user here.
+  const [waitedOut, setWaitedOut] = useState(false);
   useEffect(() => {
-    if (loading) return;
+    const t = setTimeout(() => setWaitedOut(true), 6000);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (loading && !waitedOut) return;
     const timer = setTimeout(() => {
       if (session) {
         // Already logged in — skip onboarding, go straight to app
@@ -26,7 +34,7 @@ const Splash = () => {
       }
     }, 2800);
     return () => clearTimeout(timer);
-  }, [loading, session, navigate]);
+  }, [loading, waitedOut, session, navigate]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden bg-[#0F0F14]">
